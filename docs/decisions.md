@@ -21,3 +21,8 @@ Every decision the user made after the brief (`docs/design-plan.md`). Newest at 
 Real names allowed in `dist/`. Each entry needs the user's decision recorded above.
 
 - (none yet)
+
+## 2026-09-30: models (parked)
+
+- The user wants **all the latest popular open-source models** in the game, researched from Hugging Face and current trends, not from memory. Then they said to park it and finish the current work first.
+- For now the model list stays the benchmark-backed set used for calibration. The latest-models expansion is a checkpoint item. The raw HF snapshot is in `docs/research/models-hf-snapshot-2026-09-30.md`.
