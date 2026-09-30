@@ -63,8 +63,9 @@ describe('denied-term matching', () => {
     expect(findDeniedTerms('define.amd && AMDGPU', ['AMD'])).toEqual([]);
     expect(findDeniedTerms('llama.cpp server', ['llama.cpp'])).toHaveLength(1);
   });
-  it('denies engine and model real names until the user allows them', () => {
+  it('allows the engine and model names the user approved, and still denies everything else', () => {
     const terms = deniedTerms();
-    for (const t of ['llama.cpp', 'vLLM', 'SGLang', 'Qwen', 'Llama', 'gpt-oss', 'Minecraft']) expect(terms).toContain(t);
+    for (const t of ['llama.cpp', 'vLLM', 'SGLang', 'Qwen', 'Llama', 'gpt-oss']) expect(terms).not.toContain(t);
+    for (const t of ['NVIDIA', 'GeForce', 'OpenAI', 'Hugging Face', 'Minecraft', 'Proxmox', 'Samsung']) expect(terms).toContain(t);
   });
 });

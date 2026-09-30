@@ -145,7 +145,8 @@ export function decodeStep(c, B, depth) {
       let comm = 0;
       if (s.tp > 1) {
         const link = groupLink(idx, build, s.devices);
-        comm = 2 * s.layers * allreduceSeconds(B * model.hidden * actBytes, s.tp, link);
+        comm = 2 * s.layers * allreduceSeconds(B * model.hidden * actBytes, s.tp, link)
+          + s.layers * idx.constants.interconnect.tpSyncUsPerLayer * 1e-6;
         detail.link = link.type;
       }
       t = slowest + overhead + comm;
@@ -216,7 +217,10 @@ export function prefillSeconds(c, promptTokens) {
         slowest = Math.max(slowest, Math.max(tComp, tW) / (c.perfScale[d] ?? 1));
       }
       let comm = 0;
-      if (s.tp > 1) comm = 2 * s.layers * allreduceSeconds(ub * model.hidden * actBytes, s.tp, groupLink(idx, build, s.devices));
+      if (s.tp > 1) {
+        comm = 2 * s.layers * allreduceSeconds(ub * model.hidden * actBytes, s.tp, groupLink(idx, build, s.devices))
+          + s.layers * idx.constants.interconnect.tpSyncUsPerLayer * 1e-6;
+      }
       const cyclesPerLayer = perf.layerOverheadCycles + (model.moe ? perf.moeLayerOverheadCycles : 0);
       return slowest + comm + s.layers * cyclesPerLayer / (minClock * 1e6);
     }

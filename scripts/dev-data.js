@@ -48,9 +48,13 @@ export function deniedTerms() {
   return [...new Set([...curated, ...realRefs])].filter((t) => !allow.has(t));
 }
 
-// Terms the user explicitly allowed (recorded in docs/decisions.md). None yet.
+// Terms the user explicitly allowed (recorded in docs/decisions.md):
+// inference engine names and open model names. Company names stay denied.
 export function allowedTerms() {
-  return new Set();
+  const names = [...dev.models, ...dev.engines].map((x) => x.realRef);
+  const families = ['Llama', 'llama', 'Llama-2', 'Llama-3.1', 'Llama-3.3', 'Qwen', 'Qwen2', 'Qwen2.5', 'Qwen3',
+    'Mistral', 'Mistral-Small', 'gpt-oss', 'llama.cpp', 'vLLM', 'SGLang'];
+  return new Set([...names, ...families]);
 }
 
 export function buildAndCheck(opts) {

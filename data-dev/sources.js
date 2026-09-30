@@ -33,6 +33,7 @@ export const sources = [
   { id: 'wiki-geforce30', kind: 'reference', title: 'Wikipedia: GeForce RTX 30 series (spec table)', url: 'https://en.wikipedia.org/wiki/GeForce_RTX_30_series', accessed: A },
   { id: 'wiki-geforce40', kind: 'reference', title: 'Wikipedia: GeForce RTX 40 series (spec table)', url: 'https://en.wikipedia.org/wiki/GeForce_RTX_40_series', accessed: A },
   { id: 'wiki-geforce50', kind: 'reference', title: 'Wikipedia: GeForce RTX 50 series (spec table)', url: 'https://en.wikipedia.org/wiki/GeForce_RTX_50_series', accessed: A },
+  { id: 'wiki-quadro', kind: 'reference', title: 'Wikipedia: Nvidia Quadro (RTX A-series table)', url: 'https://en.wikipedia.org/wiki/Nvidia_Quadro', accessed: A },
   { id: 'wiki-nv-dc', kind: 'reference', title: 'Wikipedia: Nvidia Tesla / data center GPU table (clocks)', url: 'https://en.wikipedia.org/wiki/Nvidia_Tesla', accessed: A },
 
   // GPU prices
@@ -103,6 +104,8 @@ export const sources = [
   { id: 'bench-lcpp-gptoss', kind: 'benchmark', title: 'llama.cpp discussion #15396: guide, running gpt-oss with llama.cpp', url: 'https://github.com/ggml-org/llama.cpp/discussions/15396', accessed: A },
   { id: 'bench-cfg', kind: 'benchmark', title: 'computingforgeeks: Ollama vs vLLM vs llama.cpp speed benchmarked', url: 'https://computingforgeeks.com/ollama-vs-vllm-vs-llama-cpp/', accessed: A },
   { id: 'bench-arxiv-char', kind: 'paper', title: 'arXiv 2512.01644: A Systematic Characterization of LLM Inference on GPUs', url: 'https://arxiv.org/html/2512.01644', accessed: A },
+  { id: 'bench-arxiv-a5000', kind: 'paper', title: 'arXiv 2607.11368: Decomposing runtime, kernel and quantization speedups on four RTX A5000 GPUs (Table 8)', url: 'https://arxiv.org/html/2607.11368', accessed: A },
+  { id: 'bench-dbm-tp', kind: 'benchmark', title: 'Database Mart: vLLM distributed inference optimization guide (1x vs 2x RTX 4090, TP)', url: 'https://www.databasemart.com/blog/vllm-distributed-inference-optimization-guide', accessed: A },
   { id: 'bench-localllm-96', kind: 'benchmark', title: 'localllm.in: Best local LLMs for 96GB VRAM (RTX PRO 6000, llama.cpp)', url: 'https://localllm.in/blog/best-local-llms-96gb-vram', accessed: A },
 
   // Physics, failure, workloads

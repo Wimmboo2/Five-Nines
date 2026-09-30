@@ -162,12 +162,19 @@ function table(override) {
     console.log(pad(r.id, 26), pad(r.role, 6), pad(r.metric, 10), pad(r.measured.toFixed(1), 10),
       pad(Number.isFinite(r.sim) ? r.sim.toFixed(1) : '-', 10), r.err === null ? 'ERR' : `${(r.err * 100).toFixed(1)}%`, r.note ? `  ${r.note}` : '');
   }
+  const stats = {};
   for (const role of ['fit', 'check']) {
     const errs = rows.filter((r) => r.role === role && r.err !== null).map((r) => Math.abs(r.err));
     errs.sort((a, b) => a - b);
-    const med = errs[Math.floor(errs.length / 2)] ?? 0;
-    console.log(`${role}: ${errs.length} cases, median |error| ${(med * 100).toFixed(1)}%, max |error| ${(Math.max(...errs) * 100).toFixed(1)}%`);
+    const med = errs.length % 2 ? errs[(errs.length - 1) / 2] : (errs[errs.length / 2 - 1] + errs[errs.length / 2]) / 2;
+    stats[role] = { med, max: Math.max(...errs), n: errs.length };
+    console.log(`${role}: ${errs.length} cases, median |error| ${(med * 100).toFixed(1)}%, max |error| ${(stats[role].max * 100).toFixed(1)}%`);
   }
+  // Tolerance agreed with the user (docs/decisions.md): held-out median <= 25%, worst <= 60%.
+  const ok = stats.check.med <= 0.25 && stats.check.max <= 0.60;
+  const over = rows.filter((r) => r.role === 'check' && r.err !== null && Math.abs(r.err) > 0.60).map((r) => r.id);
+  console.log(`TOLERANCE (held-out median <= 25%, worst <= 60%): ${ok ? 'PASS' : 'FAIL'}` +
+    (over.length ? ` | cases over 60%: ${over.join(', ')}` : ''));
   return rows;
 }
 

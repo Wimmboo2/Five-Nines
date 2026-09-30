@@ -153,3 +153,20 @@ export function systemRam(idx, build) {
   }
   return { capacityBytes, modules, speedMTs: Number.isFinite(speed) ? speed : 0, type };
 }
+
+// How many sequences of `ctx` tokens fit in the KV space left after weights and
+// overhead (what vLLM/SGLang's paged KV pool admits at once). Per GPU, the
+// tightest device decides.
+export function maxSequences(model, mem, layout, ctx) {
+  let best = Infinity;
+  for (const s of layout.stages) {
+    if (s.kind !== 'gpu') continue;
+    const perSeq = kvBytesForLayers(model, mem.kvBytesPerElement, ctx, s.layers) * (s.kvOnMain ? 1 : Math.max(1 / s.tp, 1 / model.kvHeads));
+    for (const d of s.devices) {
+      const dev = mem.devices[d];
+      const free = dev.usableBytes - dev.weights - dev.overhead;
+      best = Math.min(best, Math.floor(free / perSeq));
+    }
+  }
+  return Math.max(0, best);
+}

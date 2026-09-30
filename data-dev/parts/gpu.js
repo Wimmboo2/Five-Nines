@@ -247,4 +247,18 @@ export const calibrationGpus = [
     p2pOverPcie: est(true, 'bool', 'Datacenter.'), cooling: est('passive', '', 'SXM module.'), slots: est(0, 'slots', 'SXM module.'),
     priceUSD: est(0, 'USD', 'Not sold in game.'),
   },
+  {
+    id: 'cal-a5000', category: 'gpu', tier: 'workstation', displayName: 'calibration-only A5000', realRef: 'NVIDIA RTX A5000',
+    vramGB: pub(24, 'GB', 'wiki-quadro'), memBandwidthGBs: pub(768, 'GB/s', 'wiki-quadro'), memType: pub('GDDR6', '', 'wiki-quadro'),
+    fp16TensorTflops: est(111.1, 'TFLOPS', 'Not on an opened page. Scaled from the RTX A6000 (154.8 dense, 84 SMs, 1800 MHz, GA102 whitepaper) by SM count (64 vs 84, from 256 vs 336 tensor cores) and boost clock (1695 vs 1800).', 'wiki-quadro'),
+    fp16AccTensorTflops: est(111.1, 'TFLOPS', 'Professional GA102 runs FP16 and FP32 accumulate at the same rate; same estimate as fp16TensorTflops.'),
+    fp32Tflops: pub(27.772, 'TFLOPS', 'wiki-quadro'),
+    int8TensorTops: est(222.2, 'TOPS', 'Twice the FP16 tensor estimate (GA102 INT8 = 2x FP16 dense).'),
+    boostClockMHz: pub(1695, 'MHz', 'wiki-quadro'),
+    boardPowerW: pub(230, 'W', 'wiki-quadro'), idlePowerW: est(20, 'W', 'Calibration-only part; idle power not needed for calibration and not researched.'), maxTempC: est(93, 'C', 'Calibration-only part; throttle temperature not needed for calibration.'),
+    pcieGen: est(4, '', 'Ampere professional card; PCIe Gen 4 x16 per the product page summary.'), pcieLanes: est(16, 'lanes', 'PCIe Gen 4 x16 per the product page summary.'),
+    linkType: pub('nvlink', '', 'wiki-quadro', 'NVLink 3.0, 48 GB with bridge'), linkBandwidthGBs: est(112.5, 'GB/s', 'Same GA102 NVLink as the RTX 3090/A6000 (112.5 GB/s total, GA102 whitepaper); product page summary says up to 112 GB/s.', 'nv-ga102-wp'),
+    p2pOverPcie: est(true, 'bool', 'Professional card; peer-to-peer over PCIe assumed allowed.'), cooling: est('blower', '', 'Dual-slot active blower workstation card.'), slots: est(2, 'slots', 'Dual slot per product page summary.'),
+    priceUSD: est(0, 'USD', 'Not sold in game.'),
+  },
 ];

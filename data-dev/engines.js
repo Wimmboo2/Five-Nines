@@ -8,8 +8,8 @@ import { fittedPerf } from './fitted-perf.js';
 // scripts/calibrate.js --fit against data-dev/benchmarks.js. The reasoning
 // string names the benchmark set. They are NOT published numbers.
 //
-// displayName values are PLACEHOLDER fake names pending the checkpoint answer
-// on real vs fake software names.
+// displayName values are the real engine names (user decision at the stage-3
+// checkpoint, docs/decisions.md).
 
 // Bytes per KV element for each cache type. GGML block formats: q8_0 is 32
 // int8 values + one fp16 scale = 34 bytes per 32 elements, etc. (ggml-common.h).
@@ -46,7 +46,7 @@ export const formatComputePath = est({
 
 export const engines = [
   {
-    id: 'eng-kettle', displayName: 'Kettle', realRef: 'llama.cpp',
+    id: 'eng-kettle', displayName: 'llama.cpp', realRef: 'llama.cpp',
     weightFormats: pub(GGUF_FORMATS, '', 'hf-files', 'GGUF quantizations available for the catalog models'),
     kvTypes: pub(['f16', 'bf16', 'q8_0', 'q5_1', 'q5_0', 'q4_1', 'q4_0', 'iq4_nl', 'f32'], '', 'lcpp-server-readme'),
     kvTypeDefault: pub('f16', '', 'lcpp-server-readme'),
@@ -61,7 +61,7 @@ export const engines = [
     perf: fittedPerf['eng-kettle'],
   },
   {
-    id: 'eng-sluice', displayName: 'Sluice', realRef: 'vLLM',
+    id: 'eng-sluice', displayName: 'vLLM', realRef: 'vLLM',
     weightFormats: pub(HF_FORMATS, '', 'vllm-engine-args', 'bf16, fp8, awq, mxfp4 among supported quantization methods'),
     kvTypes: pub(['auto', 'fp8', 'fp8_e4m3', 'fp8_e5m2'], '', 'vllm-src-cache', 'auto = model dtype'),
     kvTypeDefault: pub('auto', '', 'vllm-src-cache'),
@@ -76,7 +76,7 @@ export const engines = [
     perf: fittedPerf['eng-sluice'],
   },
   {
-    id: 'eng-loom', displayName: 'Loom', realRef: 'SGLang',
+    id: 'eng-loom', displayName: 'SGLang', realRef: 'SGLang',
     weightFormats: pub(HF_FORMATS, '', 'sglang-server-args', 'awq, fp8, mxfp4 in --quantization choices'),
     kvTypes: pub(['auto', 'bf16', 'fp8_e4m3', 'fp8_e5m2'], '', 'sglang-server-args'),
     kvTypeDefault: pub('auto', '', 'sglang-server-args'),

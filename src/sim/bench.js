@@ -3,7 +3,7 @@
 // resolved to numbers).
 
 import { buildLayout } from './layout.js';
-import { planMemory } from './memory.js';
+import { planMemory, maxSequences } from './memory.js';
 import { makeContext, decodeRate, prefillSeconds } from './inference.js';
 
 // A minimal host for GPU-only benchmark cases. CPU/RAM only matter when layers
@@ -37,10 +37,22 @@ export function benchInference(b, model) {
 export function simulateBenchmark(idx, b, perfOverride) {
   const build = benchBuild(b);
   const inf = benchInference(b, idx.models.get(b.model));
+  if (b.maxRunTokens) inf.contextLength = b.maxRunTokens;
   const layout = buildLayout(idx, build, inf);
   if (layout.errors.length) return { error: layout.errors.join(' ') };
   if (perfOverride) layout.engine = { ...layout.engine, perf: { ...layout.engine.perf, ...perfOverride } };
-  const mem = planMemory(idx, build, inf, layout);
+  let mem = planMemory(idx, build, inf, layout);
+  let note;
+  if (b.kvLimited) {
+    // The engine only admits as many requests as its KV pool holds at the
+    // longest length in the run.
+    const fit = maxSequences(idx.models.get(b.model), mem, layout, inf.contextLength);
+    if (fit < inf.concurrency) {
+      note = `KV pool admits ${fit} of ${inf.concurrency} requests`;
+      inf.concurrency = Math.max(1, fit);
+      mem = planMemory(idx, build, inf, layout);
+    }
+  }
   const c = makeContext(idx, build, inf, layout, mem);
   let value;
   if (b.metric === 'prefill') value = b.promptTokens / prefillSeconds(c, b.promptTokens);
@@ -48,5 +60,5 @@ export function simulateBenchmark(idx, b, perfOverride) {
     const r = decodeRate(c, inf.concurrency, b.depth);
     value = b.metric === 'aggregate' ? r.aggregate : r.perSequence;
   }
-  return { value, memFits: mem.fits, memErrors: mem.errors };
+  return { value, memFits: mem.fits, memErrors: mem.errors, note };
 }

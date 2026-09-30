@@ -4,7 +4,7 @@ Generated from `npm run calibrate` on 2026-09-30. Engine constants were fitted w
 
 - **fit** cases set the engine constants. Their error is in-sample, so it flatters the model.
 - **check** cases are held out. Their error is the honest one.
-- **No pass/fail yet.** The acceptance tolerance is to be agreed with the user, which is a checkpoint question.
+- **Tolerance** (agreed 2026-09-30): held-out median |error| <= 25% and worst <= 60%. **Current verdict: FAIL.** The held-out median is 26.0% and 13 cases are over 60%.
 
 ## Summary by source
 
@@ -32,6 +32,17 @@ Generated from `npm run calibrate` on 2026-09-30. Engine constants were fitted w
    - **Deliberately not tuned to match.** One outlier setup shouldn't drive the model, and the user's rule for this pass was "faster than 1 GPU but not a perfect 2x". Flagged for the checkpoint.
 6. **llama.cpp's 64-concurrent throughput is host-bound.** In the data the 5090 is slower than the 4090 (1,875 vs 2,391 tok/s). The per-sequence cost is therefore modeled in microseconds, not GPU cycles.
 
+## Update after the checkpoint answers (2026-09-30)
+
+- **New per-layer TP sync term:** 10 us per layer, a tagged estimate, **not** fitted to the arXiv paper (user decision). It barely moves case E: TP2 goes from 47.7 to 46.3 tok/s against the measured 20.5.
+- **New held-out TP data G** (4x RTX A5000, vLLM 0.7.3, Llama-3.1-8B INT4):
+  - The sim's TP4/TP1 ratio is 1.56x at 8 concurrent (measured 1.50x) and 1.58x at 64 (measured 1.56x). The TP scaling matches.
+  - Absolute throughput is 29-88% high.
+- **New held-out TP data H** (2x RTX 4090 over PCIe without P2P, 300 concurrent, BF16 7B/8B):
+  - The measured TP2 gain is 1.38x (7B) and 1.47x (8B).
+  - The sim's absolute numbers are 21-97% high.
+  - The sim's 8B TP1 number is limited by how many requests the KV pool admits. That makes its TP2 jump too large.
+- **What's still wrong:** batched throughput outside the fit set (D: AWQ, 64 concurrent, 4090/L40S/5090) runs well above measured.
 ## Full table
 
 ```
@@ -113,14 +124,23 @@ D-5090-lcpp-1              check  decode     250.0      255.6      2.2%
 D-5090-vllm-64             fit    aggregate  8310.0     8153.3     -1.9% 
 D-5090-lcpp-64             fit    aggregate  1875.0     2121.9     13.2% 
 E-tp1                      check  decode     22.2       28.3       27.5% 
-E-tp2                      check  decode     20.5       47.7       132.2% 
+E-tp2                      check  decode     20.5       46.3       125.4% 
 E-pp2                      check  decode     21.1       28.2       34.0% 
-E-tp4                      check  decode     18.6       66.2       256.9% 
+E-tp4                      check  decode     18.6       63.5       242.4% 
+G-a5000-tp1-c8             check  aggregate  704.4      905.9      28.6% 
+G-a5000-tp4-c8             check  aggregate  1056.2     1414.8     33.9% 
+G-a5000-tp1-c64            check  aggregate  2391.4     4442.6     85.8%   MEM: GPU 0 (calibration-only A5000) needs 41.6 GB: weights 5.7 GB + KV cache 34.4 GB for 4,096 tokens x 64 sequence(s) + runtime 1.5 GB. It has 23.7 GB usable (92% of 25.8 GB).
+G-a5000-tp4-c64            check  aggregate  3735.4     7035.7     88.4% 
+H-4090-q7-tp1              check  aggregate  3965.4     7322.7     84.7% 
+H-4090-q7-tp2              check  aggregate  5479.3     8855.1     61.6% 
+H-4090-l8-tp1              check  aggregate  2699.7     3260.5     20.8% 
+H-4090-l8-tp2              check  aggregate  3959.1     7778.8     96.5% 
 F-oss120-d8192             check  decode     207.7      191.2      -8.0% 
 F-oss120-d16384            check  decode     203.5      185.2      -9.0% 
 F-oss120-d32768            check  decode     195.2      174.3      -10.7% 
 F-oss120-d65536            check  decode     179.9      156.0      -13.3% 
 F-oss120-d131072           check  decode     158.2      128.9      -18.5% 
 fit: 31 cases, median |error| 4.8%, max |error| 36.4%
-check: 54 cases, median |error| 25.1%, max |error| 295.8%
+check: 62 cases, median |error| 26.0%, max |error| 295.8%
+TOLERANCE (held-out median <= 25%, worst <= 60%): FAIL | cases over 60%: B-a100-8bf16, B-a100x4-70bf16, B-4090-8b-pp, B-a6000-8b-pp, B-l40s-8bf16-pp, B-l40s-8b-pp, E-tp2, E-tp4, G-a5000-tp1-c64, G-a5000-tp4-c64, H-4090-q7-tp1, H-4090-q7-tp2, H-4090-l8-tp2
 ```

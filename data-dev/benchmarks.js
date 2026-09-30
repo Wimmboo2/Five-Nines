@@ -140,6 +140,27 @@ export const benchmarks = [
     metric: 'decode', depth: ARXIV_DEPTH, value: meas(v, 'tok/s', E, 'chat workload 64 in / 128 out, vLLM v0.9.2; "NVLink pairs, PCIe across pairs"'),
   })),
 
+  // G: vLLM TP=1 vs TP=4 on 4x RTX A5000 (NVLink pairs, PCIe between pairs),
+  // Llama-3.1-8B GPTQ-INT4 (Marlin), vLLM 0.7.3. Held out. AWQ weights stand in
+  // for GPTQ-INT4 (both 4-bit group-quantized, similar file size).
+  ...[['tp1-c8', 1, 'none', 8, 704.35], ['tp4-c8', 4, 'tp', 8, 1056.24], ['tp1-c64', 1, 'none', 64, 2391.44], ['tp4-c64', 4, 'tp', 64, 3735.41]].map(([n, count, split, conc, v]) => ({
+    id: `G-a5000-${n}`, role: 'check', source: 'bench-arxiv-a5000', engine: 'eng-sluice', gpus: [{ part: 'cal-a5000', count }], split,
+    model: 'mdl-tamarin-31-8b', quant: 'AWQ', kvType: 'auto', flashAttention: true, concurrency: conc,
+    metric: 'aggregate', depth: est(conc === 8 ? 64 : 128, 'tokens', 'Table 8 lists T=128 (c=8) and T=256 (c=64) as the workload length; the input length was not read, so mean depth is taken as half of T.'),
+    value: meas(v, 'tok/s', 'bench-arxiv-a5000', 'decode tokens/s, Table 8'),
+  })),
+
+  // H: 1x vs 2x RTX 4090 over PCIe ("SYS", no NVLink), 300 concurrent requests,
+  // 100 in / 600 out, FP16. Held out. DeepSeek-R1-Distill-Qwen-7B has the
+  // Qwen2.5-7B architecture; DeepSeek-R1-Distill-Llama-8B has the Llama-3.1-8B one.
+  ...[['q7-tp1', 'mdl-quill-25-7b', 1, 'none', 3965.41], ['q7-tp2', 'mdl-quill-25-7b', 2, 'tp', 5479.26],
+    ['l8-tp1', 'mdl-tamarin-31-8b', 1, 'none', 2699.72], ['l8-tp2', 'mdl-tamarin-31-8b', 2, 'tp', 3959.14]].map(([n, m, count, split, v]) => ({
+    id: `H-4090-${n}`, role: 'check', source: 'bench-dbm-tp', engine: 'eng-sluice', gpus: [{ part: 'gpu-ember-g4-24', count }], split,
+    model: m, quant: 'BF16', kvType: 'auto', flashAttention: true, concurrency: 300, kvLimited: true, maxRunTokens: 700,
+    metric: 'aggregate', depth: est(400, 'tokens', '100 input tokens + mean of 600 output tokens.'),
+    value: meas(v, 'tok/s', 'bench-dbm-tp', 'total throughput at 300 concurrent requests; architecture-equivalent distilled model'),
+  })),
+
   // F: gpt-oss-120b long-context decode on RTX PRO 6000, llama.cpp (held out)
   ...[[8192, 207.7], [16384, 203.5], [32768, 195.2], [65536, 179.9], [131072, 158.2]].map(([d, v]) => ({
     id: `F-oss120-d${d}`, role: 'check', source: F, engine: 'eng-kettle', gpus: [{ part: 'gpu-atelier-b96', count: 1 }], split: 'none',

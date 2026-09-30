@@ -25,11 +25,18 @@ describe('dist brand check', () => {
     expect(hits.map((h) => h.term)).toEqual(expect.arrayContaining(['NVIDIA', 'GeForce', 'RTX']));
   });
 
-  it('fails on a planted engine name', () => {
-    const dir = tempDist({ 'assets/app.js': 'label("Powered by vLLM")' });
+  it('fails on a planted company or game name that is still denied', () => {
+    const dir = tempDist({ 'assets/app.js': 'label("by OpenAI"); world("Minecraft")' });
     const hits = scanDir(dir, terms);
     rmSync(dir, { recursive: true });
-    expect(hits.map((h) => h.term)).toContain('vLLM');
+    expect(hits.map((h) => h.term)).toEqual(expect.arrayContaining(['OpenAI', 'Minecraft']));
+  });
+
+  it('passes allowed engine and model names', () => {
+    const dir = tempDist({ 'assets/app.js': 'x("vLLM", "llama.cpp", "Qwen3-32B", "gpt-oss-20b")' });
+    const hits = scanDir(dir, terms);
+    rmSync(dir, { recursive: true });
+    expect(hits).toEqual([]);
   });
 
   it('passes a clean bundle that uses only fake names', () => {

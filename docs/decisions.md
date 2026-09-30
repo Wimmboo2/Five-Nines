@@ -20,9 +20,18 @@ Every decision the user made after the brief (`docs/design-plan.md`). Newest at 
 
 Real names allowed in `dist/`. Each entry needs the user's decision recorded above.
 
-- (none yet)
+- Inference engine names: llama.cpp, vLLM, SGLang (decision 2026-09-30, checkpoint round)
+- Open model family and model names in the catalog: Llama, Qwen, Mistral, gpt-oss (and their full model names) (decision 2026-09-30, checkpoint round)
+- Company names stay denied even where they are part of a model's name (Meta, OpenAI, Mistral AI as a company are not shown).
 
 ## 2026-09-30: models (parked)
 
 - The user wants **all the latest popular open-source models** in the game, researched from Hugging Face and current trends, not from memory. Then they said to park it and finish the current work first.
 - For now the model list stays the benchmark-backed set used for calibration. The latest-models expansion is a checkpoint item. The raw HF snapshot is in `docs/research/models-hf-snapshot-2026-09-30.md`.
+
+## 2026-09-30: checkpoint round after stage 3 (first answers)
+
+- **Calibration tolerance:** median |error| <= 25% and worst case <= 60%, over the held-out (`check`) benchmark cases. `npm run calibrate` reports pass/fail against it.
+- **Near misses:** partial credit. Missing a target (e.g. 18 tok/s vs 20) lowers the score in proportion. It doesn't make the client angry unless a hard limit fails (doesn't fit, power, overheating). The exact formula is still an open question.
+- **Real names:** models and inference engines use their real names in the game. Hardware keeps fake brand names (locked decision).
+- **Tensor parallel:** add a per-layer TP synchronization overhead term, tagged as an estimate and **not fitted** to the one arXiv measurement. Keep hunting for more TP benchmarks (especially small models over PCIe). The user asked what that measurement used: Qwen2.5-32B-Instruct BF16, vLLM v0.9.2, 4x A100 80GB SXM, "NVLink pairs, PCIe across pairs", chat workload with 64 input / 128 output tokens.
