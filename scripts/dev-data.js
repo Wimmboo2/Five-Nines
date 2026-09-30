@@ -53,7 +53,8 @@ export function deniedTerms() {
 export function allowedTerms() {
   const names = [...dev.models, ...dev.engines].map((x) => x.realRef);
   const families = ['Llama', 'llama', 'Llama-2', 'Llama-3.1', 'Llama-3.3', 'Qwen', 'Qwen2', 'Qwen2.5', 'Qwen3',
-    'Mistral', 'Mistral-Small', 'gpt-oss', 'llama.cpp', 'vLLM', 'SGLang'];
+    'Mistral', 'Mistral-Small', 'gpt-oss', 'llama.cpp', 'vLLM', 'SGLang',
+    'Qwen3.5', 'Qwen3.6', 'Qwen3.8', 'Llama-3.2', 'Llama-4', 'Ministral', 'phi-4', 'Phi', 'gemma-4', 'Gemma', 'GLM', 'GLM-4.5-Air', 'GLM-4.7-Flash', 'GLM-5.3', 'MiniMax', 'MiniMax-M2.7', 'DeepSeek', 'DeepSeek-V3.2', 'MiniCPM', 'MiniCPM5'];
   return new Set([...names, ...families]);
 }
 

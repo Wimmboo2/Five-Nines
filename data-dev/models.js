@@ -1,4 +1,5 @@
 import { pub, est } from './lib.js';
+import { models2026 } from './models-2026.js';
 
 // Open-weight models. Architecture values are from each repo's config.json and
 // parameter counts from the Hugging Face API (source hf-configs). Quantized
@@ -19,7 +20,7 @@ function fullAttention(layers) {
   return { fullLayers: cfg(layers, 'layers'), slidingLayers: cfg(0, 'layers'), slidingWindow: cfg(0, 'tokens') };
 }
 
-export const models = [
+const models2025 = [
   {
     id: 'mdl-tamarin-2-7b', displayName: 'Llama-2-7B', realRef: 'Llama-2-7B', family: 'tamarin',
     layers: cfg(32), qHeads: cfg(32), kvHeads: cfg(32), headDim: est(128, '', 'hidden_size 4096 / 32 attention heads (config has no head_dim field).', 'hf-configs'),
@@ -174,3 +175,5 @@ export const models = [
     weights: { MXFP4: file(63387346208) },
   },
 ];
+
+export const models = [...models2025, ...models2026];

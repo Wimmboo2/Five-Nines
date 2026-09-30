@@ -1,7 +1,7 @@
 // Memory fit: weights + KV cache + runtime overhead against VRAM and system RAM.
 
 import { GB } from './util.js';
-import { weightGeometry, kvBytesForLayers } from './model.js';
+import { weightGeometry, kvBytesForLayers, kvTpShare } from './model.js';
 
 const fmt = (bytes) => `${(bytes / GB).toFixed(1)} GB`;
 
@@ -81,7 +81,7 @@ export function planMemory(idx, build, inf, layout) {
     // Weights split across the TP group; KV split by heads unless the engine
     // keeps it on the main GPU (llama.cpp row split). With more TP ranks than
     // KV heads, heads are replicated.
-    const kvShare = s.kvOnMain ? null : Math.max(1 / s.tp, 1 / model.kvHeads);
+    const kvShare = s.kvOnMain ? null : kvTpShare(model, s.tp);
     s.devices.forEach((d, j) => {
       const dev = devices[d];
       dev.used = true;
@@ -161,7 +161,7 @@ export function maxSequences(model, mem, layout, ctx) {
   let best = Infinity;
   for (const s of layout.stages) {
     if (s.kind !== 'gpu') continue;
-    const perSeq = kvBytesForLayers(model, mem.kvBytesPerElement, ctx, s.layers) * (s.kvOnMain ? 1 : Math.max(1 / s.tp, 1 / model.kvHeads));
+    const perSeq = kvBytesForLayers(model, mem.kvBytesPerElement, ctx, s.layers) * (s.kvOnMain ? 1 : kvTpShare(model, s.tp));
     for (const d of s.devices) {
       const dev = mem.devices[d];
       const free = dev.usableBytes - dev.weights - dev.overhead;

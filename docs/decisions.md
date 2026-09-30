@@ -23,6 +23,8 @@ Real names allowed in `dist/`. Each entry needs the user's decision recorded abo
 - Inference engine names: llama.cpp, vLLM, SGLang (decision 2026-09-30, checkpoint round)
 - Open model family and model names in the catalog: Llama, Qwen, Mistral, gpt-oss (and their full model names) (decision 2026-09-30, checkpoint round)
 - Company names stay denied even where they are part of a model's name (Meta, OpenAI, Mistral AI as a company are not shown).
+- 2026-09-30 (Part 0b, 30 models): allowed model family terms added for the new models: Qwen3.5, Qwen3.6, Qwen3.8, Llama-3.2, Llama-4, Ministral, phi-4, Phi, gemma-4, Gemma, GLM (GLM-4.5-Air, GLM-4.7-Flash, GLM-5.3), MiniMax (MiniMax-M2.7), DeepSeek (DeepSeek-V3.2), MiniCPM (MiniCPM5), plus every full model name (realRef). Where the company and the model brand share a word (DeepSeek, MiniMax, Mistral) the word is allowed only because it is the model name; the company forms stay denied: DeepSeek AI, deepseek-ai, MiniMax AI, MiniMaxAI, Mistral AI, mistralai, Google, Microsoft, Alibaba, Zhipu, Z.ai, zai-org, OpenBMB, ModelBest, Moonshot, Meta Platforms, Meta AI, meta-llama.
+- The bare word "Meta" is not on the denylist: React's bundled keyboard-key table contains the string "Meta" (the Meta key), a false positive. "Meta Platforms", "Meta AI" and "meta-llama" are denied instead.
 
 ## 2026-09-30: models (parked)
 

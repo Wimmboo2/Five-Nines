@@ -20,7 +20,7 @@
 import { cpuCount, nodeOf } from './util.js';
 import { GB } from './util.js';
 import {
-  layerReadBytes, kvBytesForLayers, layerActiveParams, attentionFlopsPerTokenLayer, uniqueExpertsTouched,
+  layerReadBytes, kvBytesForLayers, layerActiveParams, avgAttentionFlops, avgExpertParamsPerLayer, kvTpShare, uniqueExpertsTouched,
 } from './model.js';
 import { systemRam } from './memory.js';
 
@@ -127,11 +127,9 @@ export function decodeStep(c, B, depth) {
       let weightRead = s.layers * perLayerWeights - (s.cpuMoeOverlap ?? 0) * expertPart;
       if (s.lmHead) weightRead += geo.lmHeadBytes;
       const kvRead = B * kvBytesForLayers(model, c.kvBpe, depth, s.layers);
-      const fullFrac = model.attention.fullLayers / model.layers;
-      const attnFlops = B * s.layers * (fullFrac * attentionFlopsPerTokenLayer(model, depth, false)
-        + (1 - fullFrac) * attentionFlopsPerTokenLayer(model, depth, true));
+      const attnFlops = B * s.layers * avgAttentionFlops(model, depth);
       const matFlops = 2 * B * (s.layers * layerActiveParams(model) + (s.lmHead ? model.vocab * model.hidden : 0));
-      const kvShare = s.kvOnMain ? null : Math.max(1 / s.tp, 1 / model.kvHeads);
+      const kvShare = s.kvOnMain ? null : kvTpShare(model, s.tp);
       const path = idx.formatComputePath[c.inf.engine][c.inf.quant];
 
       let slowest = 0;
@@ -214,10 +212,8 @@ export function prefillSeconds(c, promptTokens) {
   const ub = Math.min(P, chunk);
   const path = idx.formatComputePath[inf.engine][inf.quant];
   const eff = matmulEfficiency(perf, path, model);
-  const fullFrac = model.attention.fullLayers / model.layers;
   // Average attention span over the prompt ~ P/2 for full layers.
-  const attnPerTokLayer = fullFrac * attentionFlopsPerTokenLayer(model, P / 2, false)
-    + (1 - fullFrac) * attentionFlopsPerTokenLayer(model, P / 2, true);
+  const attnPerTokLayer = avgAttentionFlops(model, P / 2);
   const actBytes = idx.constants.inference.activationBytes;
 
   const stageTimes = layout.stages.map((s) => {
@@ -244,7 +240,7 @@ export function prefillSeconds(c, promptTokens) {
     const cpu = idx.parts.get(build.cpu);
     const cpuFlops = cpuCount(build) * cpu.cores * cpu.boostClockGHz * 1e9 * idx.constants.inference.cpuFlopsPerCoreCycle;
     const perLayer = s.kind === 'cpu-experts'
-      ? 2 * model.moe.expertsPerToken * model.moe.expertParamsPerExpertLayer
+      ? 2 * model.moe.expertsPerToken * avgExpertParamsPerLayer(model)
       : 2 * layerActiveParams(model) + attnPerTokLayer;
     return (ub * s.layers * perLayer) / (idx.constants.inference.cpuPrefillEfficiency * cpuFlops);
   });
