@@ -1,4 +1,5 @@
 import { pub, est } from './lib.js';
+import { fittedPerf } from './fitted-perf.js';
 
 // Inference engines: the real settings each one exposes (sourced from their
 // docs), plus the performance constants the sim uses for them.
@@ -32,11 +33,16 @@ export const kvCacheTypes = {
 const GGUF_FORMATS = ['Q4_0', 'Q4_K_M', 'Q5_K_M', 'Q6_K', 'Q8_0', 'F16', 'BF16', 'MXFP4'];
 const HF_FORMATS = ['BF16', 'FP8', 'AWQ', 'MXFP4'];
 
-// Weight format -> which tensor-core path prefill uses (estimate, see reasoning).
+// Which peak throughput a matmul path is limited by. Per engine, because the
+// same weight format runs through different kernels in different engines.
+//   cuda-core      : non-tensor FP32 rate (fp32Tflops)
+//   tensor-fp16acc : FP16 tensor, FP16 accumulate (fp16AccTensorTflops)
+//   tensor-fp32acc : FP16 tensor, FP32 accumulate (fp16TensorTflops)
 export const formatComputePath = est({
-  Q4_0: 'int8', Q4_K_M: 'int8', Q5_K_M: 'int8', Q6_K: 'int8', Q8_0: 'int8', MXFP4: 'int8',
-  F16: 'fp16', BF16: 'fp16', FP8: 'fp16', AWQ: 'fp16',
-}, '', 'llama.cpp runs quantized GGUF matmuls on integer tensor paths and F16/BF16 on fp16 tensor paths; vLLM/SGLang AWQ and FP8 weight-only kernels do the math in fp16/bf16 on the GPUs in this catalog. Not confirmed per kernel on an opened page.');
+  'eng-kettle': { Q4_0: 'cuda-core', Q4_K_M: 'cuda-core', Q5_K_M: 'cuda-core', Q6_K: 'cuda-core', Q8_0: 'cuda-core', MXFP4: 'cuda-core', F16: 'tensor-fp16acc', BF16: 'tensor-fp16acc' },
+  'eng-sluice': { BF16: 'tensor-fp32acc', FP8: 'tensor-fp32acc', AWQ: 'tensor-fp32acc', MXFP4: 'tensor-fp32acc' },
+  'eng-loom': { BF16: 'tensor-fp32acc', FP8: 'tensor-fp32acc', AWQ: 'tensor-fp32acc', MXFP4: 'tensor-fp32acc' },
+}, '', 'Chosen from the calibration data, not from kernel docs. llama.cpp quantized prefill scales with CUDA-core throughput across 8 GPUs (1.7-3.6x fp32Tflops) far more consistently than with int8 tensor peak (7-31%), consistent with dequantization work bounding its quantized kernels. llama.cpp F16 prefill is 36-45% of the FP16-accumulate tensor peak on every GPU in the data, but 36-90% of the FP32-accumulate peak. vLLM/SGLang assumed to accumulate in FP32 (PyTorch default). Not confirmed on an opened page.');
 
 export const engines = [
   {
@@ -50,13 +56,9 @@ export const engines = [
     pipelineParallel: pub(true, 'bool', 'lcpp-server-readme', 'layer split is pipelined'),
     memFractionDefault: est(1.0, 'fraction', 'llama.cpp does not reserve a fixed fraction; it allocates what the model, KV and compute buffers need.'),
     runtimeOverheadGB: est(0.8, 'GB', 'CUDA context plus compute buffers at the default -ub 512. Not measured on an opened page.'),
-    perf: {
-      bwEfficiency: est(0.85, 'fraction', 'Placeholder before fitting.'),
-      layerOverheadCycles: est(80000, 'cycles', 'Placeholder before fitting.'),
-      prefillEfficiencyInt8: est(0.5, 'fraction', 'Placeholder before fitting.'),
-      prefillEfficiencyFp16: est(0.5, 'fraction', 'Placeholder before fitting.'),
-      batchDecodeEfficiency: est(0.2, 'fraction', 'Placeholder before fitting.'),
-    },
+    prefillChunkTokens: pub(512, 'tokens', 'lcpp-server-readme', '-ub physical batch default 512'),
+    inputEmbeddingsOnCpu: est(true, 'bool', 'llama.cpp keeps the token-embedding table in host memory (only one row is looked up per token). Evidence: the published 6x 24 GB run of Llama 70B F16 does not fit if the 2.1 GB table sits on GPU 0. Not confirmed in docs.'),
+    perf: fittedPerf['eng-kettle'],
   },
   {
     id: 'eng-sluice', displayName: 'Sluice', realRef: 'vLLM',
@@ -69,13 +71,9 @@ export const engines = [
     pipelineParallel: pub(true, 'bool', 'vllm-engine-args'),
     memFractionDefault: pub(0.92, 'fraction', 'vllm-src-cache', 'gpu_memory_utilization default'),
     runtimeOverheadGB: est(1.5, 'GB', 'Activation workspace and CUDA graphs inside the gpu_memory_utilization budget. Not measured on an opened page.'),
-    perf: {
-      bwEfficiency: est(0.85, 'fraction', 'Placeholder before fitting.'),
-      layerOverheadCycles: est(80000, 'cycles', 'Placeholder before fitting.'),
-      prefillEfficiencyInt8: est(0.5, 'fraction', 'Placeholder before fitting.'),
-      prefillEfficiencyFp16: est(0.5, 'fraction', 'Placeholder before fitting.'),
-      batchDecodeEfficiency: est(0.5, 'fraction', 'Placeholder before fitting.'),
-    },
+    prefillChunkTokens: est(8192, 'tokens', 'max_num_batched_tokens default not captured from the docs page (listed as "testing convenience value"); 8192 assumed.'),
+    inputEmbeddingsOnCpu: est(false, 'bool', 'vLLM loads all model weights onto the GPUs (embedding sharded with TP).'),
+    perf: fittedPerf['eng-sluice'],
   },
   {
     id: 'eng-loom', displayName: 'Loom', realRef: 'SGLang',
@@ -88,12 +86,8 @@ export const engines = [
     pipelineParallel: pub(true, 'bool', 'sglang-server-args'),
     memFractionDefault: pub(0.88, 'fraction', 'sglang-server-args', '"computed as ~0.88 if undetectable"'),
     runtimeOverheadGB: est(1.5, 'GB', 'Activation workspace and CUDA graphs. Not measured on an opened page.'),
-    perf: {
-      bwEfficiency: est(0.85, 'fraction', 'No SGLang single-stream benchmark on catalog hardware was found; set equal to the fitted vLLM value.'),
-      layerOverheadCycles: est(80000, 'cycles', 'Set equal to the fitted vLLM value (no SGLang data).'),
-      prefillEfficiencyInt8: est(0.5, 'fraction', 'Set equal to the fitted vLLM value (no SGLang data).'),
-      prefillEfficiencyFp16: est(0.5, 'fraction', 'Set equal to the fitted vLLM value (no SGLang data).'),
-      batchDecodeEfficiency: est(0.5, 'fraction', 'Set equal to the fitted vLLM value (no SGLang data).'),
-    },
+    prefillChunkTokens: est(8192, 'tokens', '--chunked-prefill-size default is None (auto) on the docs page; 8192 assumed to match the vLLM setting.'),
+    inputEmbeddingsOnCpu: est(false, 'bool', 'SGLang loads all model weights onto the GPUs.'),
+    perf: fittedPerf['eng-loom'],
   },
 ];

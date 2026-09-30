@@ -2,7 +2,10 @@ import { pub, meas, est } from '../lib.js';
 
 // GPUs. displayName values are PROPOSED fake brand names, pending user approval.
 // Tensor TFLOPS/TOPS are dense (no sparsity). fp16TensorTflops is FP16 multiply
-// with FP32 accumulate where the source distinguishes it.
+// with FP32 accumulate where the source distinguishes it; fp16AccTensorTflops is
+// FP16 multiply with FP16 accumulate (twice the FP32-accumulate rate on GeForce,
+// the same on professional/datacenter parts). fp32Tflops is non-tensor CUDA-core
+// single precision.
 
 const FE_GEFORCE_P2P = (card) =>
   est(false, 'bool', `GeForce cards: peer-to-peer over PCIe treated as unavailable. A search summary of nccl-tests issue #117 said "RTX 4090 does not support P2P by default"; applied to ${card} as well. Not confirmed on an opened page.`);
@@ -15,6 +18,8 @@ export const gpus = [
     memBandwidthGBs: pub(360, 'GB/s', 'wiki-geforce30'),
     memType: pub('GDDR6', '', 'wiki-geforce30'),
     fp16TensorTflops: est(25.6, 'TFLOPS', 'Wikipedia lists 51.2 dense FP16 tensor TFLOPS (FP16 accumulate). On GeForce Ampere the FP32-accumulate rate is half of the FP16-accumulate rate (GA102 whitepaper: RTX 3090 142 vs 71), so 51.2 / 2.', 'wiki-geforce30'),
+    fp16AccTensorTflops: pub(51.2, 'TFLOPS', 'wiki-geforce30', 'dense tensor compute column (FP16 accumulate)'),
+    fp32Tflops: pub(12.74, 'TFLOPS', 'wiki-geforce30', 'single precision, boost'),
     int8TensorTops: est(102.4, 'TOPS', 'GeForce Ampere INT8 dense = 2x FP16-accumulate dense (GA102 whitepaper: RTX 3090 284 vs 142). 2 x 51.2.', 'wiki-geforce30'),
     boostClockMHz: pub(1777, 'MHz', 'wiki-geforce30'),
     boardPowerW: pub(170, 'W', 'wiki-geforce30'),
@@ -36,6 +41,8 @@ export const gpus = [
     memBandwidthGBs: pub(936, 'GB/s', 'nv-ga102-wp'),
     memType: pub('GDDR6X', '', 'nv-ga102-wp'),
     fp16TensorTflops: pub(71, 'TFLOPS', 'nv-ga102-wp'),
+    fp16AccTensorTflops: pub(142, 'TFLOPS', 'nv-ga102-wp'),
+    fp32Tflops: pub(35.6, 'TFLOPS', 'nv-ga102-wp'),
     int8TensorTops: pub(284.7, 'TOPS', 'nv-bw-wp', 'Appendix A comparison column'),
     boostClockMHz: pub(1695, 'MHz', 'nv-ga102-wp'),
     boardPowerW: pub(350, 'W', 'nv-3090-page'),
@@ -57,6 +64,8 @@ export const gpus = [
     memBandwidthGBs: pub(1008, 'GB/s', 'nv-ada-wp'),
     memType: pub('GDDR6X', '', 'nv-ada-wp'),
     fp16TensorTflops: pub(165.2, 'TFLOPS', 'nv-ada-wp'),
+    fp16AccTensorTflops: pub(330.3, 'TFLOPS', 'nv-ada-wp'),
+    fp32Tflops: pub(82.6, 'TFLOPS', 'nv-ada-wp'),
     int8TensorTops: pub(660.6, 'TOPS', 'nv-ada-wp'),
     boostClockMHz: pub(2520, 'MHz', 'nv-ada-wp'),
     boardPowerW: pub(450, 'W', 'nv-4090-page'),
@@ -78,6 +87,8 @@ export const gpus = [
     memBandwidthGBs: pub(1792, 'GB/s', 'nv-bw-wp'),
     memType: pub('GDDR7', '', 'nv-bw-wp'),
     fp16TensorTflops: pub(209.5, 'TFLOPS', 'nv-bw-wp'),
+    fp16AccTensorTflops: pub(419, 'TFLOPS', 'nv-bw-wp'),
+    fp32Tflops: pub(104.8, 'TFLOPS', 'nv-bw-wp'),
     int8TensorTops: pub(838, 'TOPS', 'nv-bw-wp'),
     boostClockMHz: pub(2407, 'MHz', 'nv-bw-wp'),
     boardPowerW: pub(575, 'W', 'nv-5090-page'),
@@ -99,6 +110,8 @@ export const gpus = [
     memBandwidthGBs: pub(768, 'GB/s', 'nv-ga102-wp'),
     memType: pub('GDDR6', '', 'nv-ga102-wp'),
     fp16TensorTflops: pub(154.8, 'TFLOPS', 'nv-ga102-wp'),
+    fp16AccTensorTflops: pub(154.8, 'TFLOPS', 'nv-ga102-wp'),
+    fp32Tflops: pub(38.7, 'TFLOPS', 'nv-ga102-wp'),
     int8TensorTops: pub(309.7, 'TOPS', 'nv-ga102-wp'),
     boostClockMHz: pub(1800, 'MHz', 'nv-ga102-wp'),
     boardPowerW: pub(300, 'W', 'nv-a6000-page'),
@@ -120,6 +133,8 @@ export const gpus = [
     memBandwidthGBs: pub(1792, 'GB/s', 'nv-pro6000-page'),
     memType: pub('GDDR7', '', 'nv-pro6000-page'),
     fp16TensorTflops: pub(503.8, 'TFLOPS', 'nv-bwpro-wp'),
+    fp16AccTensorTflops: pub(503.8, 'TFLOPS', 'nv-bwpro-wp'),
+    fp32Tflops: pub(126.0, 'TFLOPS', 'nv-bwpro-wp'),
     int8TensorTops: pub(1007.6, 'TOPS', 'nv-bwpro-wp'),
     boostClockMHz: pub(2617, 'MHz', 'nv-bwpro-wp'),
     boardPowerW: pub(600, 'W', 'nv-pro6000-page'),
@@ -141,6 +156,8 @@ export const gpus = [
     memBandwidthGBs: pub(864, 'GB/s', 'nv-l40s-page'),
     memType: pub('GDDR6', '', 'nv-l40s-page'),
     fp16TensorTflops: pub(362.05, 'TFLOPS', 'nv-l40s-page', 'BF16/FP16 tensor, dense'),
+    fp16AccTensorTflops: est(362.05, 'TFLOPS', 'NVIDIA lists one BF16/FP16 tensor figure without the accumulate type; datacenter Ada runs FP32 accumulate at full rate (RTX 6000 Ada: 364 either way), so the same figure is used.', 'nv-l40s-page'),
+    fp32Tflops: pub(91.6, 'TFLOPS', 'nv-l40s-page'),
     int8TensorTops: pub(733, 'TOPS', 'nv-l40s-page', 'dense'),
     boostClockMHz: est(2490, 'MHz', 'L40S clock not found; the L40 (same AD102 core configuration) lists 2490 MHz max boost on Wikipedia.', 'wiki-nv-dc'),
     boardPowerW: pub(350, 'W', 'nv-l40s-page'),
@@ -162,6 +179,8 @@ export const gpus = [
     memBandwidthGBs: pub(1935, 'GB/s', 'nv-a100-page'),
     memType: pub('HBM2e', '', 'nv-a100-page'),
     fp16TensorTflops: pub(312, 'TFLOPS', 'nv-a100-page', 'dense'),
+    fp16AccTensorTflops: pub(312, 'TFLOPS', 'nv-a100-page', 'A100 has one FP16 tensor rate'),
+    fp32Tflops: pub(19.5, 'TFLOPS', 'nv-a100-page'),
     int8TensorTops: pub(624, 'TOPS', 'nv-a100-page', 'dense'),
     boostClockMHz: pub(1410, 'MHz', 'wiki-nv-dc'),
     boardPowerW: pub(300, 'W', 'nv-a100-page'),
@@ -183,6 +202,8 @@ export const gpus = [
     memBandwidthGBs: pub(3900, 'GB/s', 'nv-h100-page'),
     memType: pub('HBM3', '', 'nv-h100-page'),
     fp16TensorTflops: est(835.5, 'TFLOPS', 'NVIDIA lists 1,671 TFLOPS with sparsity; dense is half, as on every other SKU in these tables.', 'nv-h100-page'),
+    fp16AccTensorTflops: est(835.5, 'TFLOPS', 'Same as the FP16 tensor figure: Hopper has one FP16 tensor rate. 1,671 with sparsity / 2.', 'nv-h100-page'),
+    fp32Tflops: pub(60, 'TFLOPS', 'nv-h100-page'),
     int8TensorTops: est(1670.5, 'TOPS', 'NVIDIA lists 3,341 TOPS with sparsity; dense is half.', 'nv-h100-page'),
     boostClockMHz: est(1785, 'MHz', 'Not found on an opened page. Wikipedia lists H100 PCIe at 1755 MHz and SXM at 1980 MHz; NVL placed between them.', 'wiki-nv-dc'),
     boardPowerW: pub(400, 'W', 'nv-h100-page', 'Configurable 350-400 W; top of range used'),
@@ -206,6 +227,7 @@ export const calibrationGpus = [
     id: 'cal-a100-sxm', category: 'gpu', tier: 'datacenter', displayName: 'calibration-only A100 SXM', realRef: 'NVIDIA A100 80GB SXM',
     vramGB: pub(80, 'GB', 'nv-a100-page'), memBandwidthGBs: pub(2039, 'GB/s', 'nv-a100-page'), memType: pub('HBM2e', '', 'nv-a100-page'),
     fp16TensorTflops: pub(312, 'TFLOPS', 'nv-a100-page'), int8TensorTops: pub(624, 'TOPS', 'nv-a100-page'),
+    fp16AccTensorTflops: pub(312, 'TFLOPS', 'nv-a100-page'), fp32Tflops: pub(19.5, 'TFLOPS', 'nv-a100-page'),
     boostClockMHz: pub(1410, 'MHz', 'wiki-nv-dc', 'PCIe card clock; SXM assumed the same'),
     boardPowerW: pub(400, 'W', 'nv-a100-page'), idlePowerW: est(50, 'W', 'Calibration-only part; idle power not needed for calibration and not researched.'), maxTempC: est(85, 'C', 'Calibration-only part; throttle temperature not needed for calibration.'),
     pcieGen: pub(4, '', 'nv-a100-page'), pcieLanes: est(16, 'lanes', 'SXM module host link treated as x16 (calibration-only part).'),
@@ -217,6 +239,7 @@ export const calibrationGpus = [
     id: 'cal-h100-sxm', category: 'gpu', tier: 'datacenter', displayName: 'calibration-only H100 SXM', realRef: 'NVIDIA H100 SXM5 80GB',
     vramGB: pub(80, 'GB', 'nv-h100-page'), memBandwidthGBs: pub(3350, 'GB/s', 'nv-h100-page'), memType: pub('HBM3', '', 'nv-h100-page'),
     fp16TensorTflops: est(989.5, 'TFLOPS', '1,979 with sparsity / 2.', 'nv-h100-page'), int8TensorTops: est(1979, 'TOPS', '3,958 with sparsity / 2.', 'nv-h100-page'),
+    fp16AccTensorTflops: est(989.5, 'TFLOPS', '1,979 with sparsity / 2; one FP16 tensor rate.', 'nv-h100-page'), fp32Tflops: pub(67, 'TFLOPS', 'nv-h100-page'),
     boostClockMHz: pub(1980, 'MHz', 'wiki-nv-dc'),
     boardPowerW: pub(700, 'W', 'nv-h100-page'), idlePowerW: est(70, 'W', 'Calibration-only part; idle power not needed for calibration and not researched.'), maxTempC: est(85, 'C', 'Calibration-only part; throttle temperature not needed for calibration.'),
     pcieGen: pub(5, '', 'nv-h100-page'), pcieLanes: est(16, 'lanes', 'SXM module host link treated as x16 (calibration-only part).'),

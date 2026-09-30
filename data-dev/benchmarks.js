@@ -86,14 +86,30 @@ export const benchmarks = [
   xd('l40sx4-70bf16', 'gpu-bastion-p48', 4, L70, 'F16', 5.03),
   xd('a100x4-70bf16', 'gpu-bastion-h80', 4, L70, 'F16', 7.38),
 
-  // C: gpt-oss-20b MoE, llama.cpp (held out)
-  { id: 'C-4090-oss20-tg', role: 'check', source: C, engine: 'eng-kettle', gpus: [{ part: 'gpu-ember-g4-24', count: 1 }], split: 'none',
+  // B (prompt processing): average 1024-token prompt eval speed. F16 rows fit the
+  // fp16 prefill efficiency; Q4_K_M rows are held out. The L40S F16 row is held
+  // out: it is inconsistent with the same source's L40S Q4_K_M row (F16 prompt
+  // eval 2,491 vs Q4 5,909, while every other GPU in the table is faster at F16).
+  ...[['3090', 'gpu-ember-g3-24', 4239.64, 3865.39], ['4090', 'gpu-ember-g4-24', 9056.26, 6898.71], ['a6000', 'gpu-atelier-a48', 4315.18, 3621.81],
+    ['l40s', 'gpu-bastion-p48', 2491.65, 5908.52], ['a100', 'gpu-bastion-h80', 7504.24, 5800.48]].flatMap(([n, gpu, f16, q4]) => [
+    { id: `B-${n}-8bf16-pp`, role: n === 'l40s' ? 'check' : 'fit', source: B, engine: 'eng-kettle', gpus: [{ part: gpu, count: 1 }], split: 'none',
+      model: L8, quant: 'BF16', kvType: 'f16', flashAttention: false, concurrency: 1,
+      metric: 'prefill', promptTokens: 1024, value: meas(f16, 'tok/s', B, 'average 1024-token prompt eval, F16 GGUF') },
+    { id: `B-${n}-8b-pp`, role: 'check', source: B, engine: 'eng-kettle', gpus: [{ part: gpu, count: 1 }], split: 'none',
+      model: L8, quant: 'Q4_K_M', kvType: 'f16', flashAttention: false, concurrency: 1,
+      metric: 'prefill', promptTokens: 1024, value: meas(q4, 'tok/s', B, 'average 1024-token prompt eval, Q4_K_M') },
+  ]),
+
+  // C: gpt-oss-20b MoE, llama.cpp. The 4090 cases fit the MoE-specific terms
+  // (extra per-layer decode overhead, prefill slowdown from many small expert
+  // matmuls); the 5090 cases are held out.
+  { id: 'C-4090-oss20-tg', role: 'fit', source: C, engine: 'eng-kettle', gpus: [{ part: 'gpu-ember-g4-24', count: 1 }], split: 'none',
     model: 'mdl-ossia-20b', quant: 'MXFP4', kvType: 'f16', flashAttention: true, concurrency: 1,
     metric: 'decode', depth: TG128_DEPTH, value: meas(221.95, 'tok/s', C, 'tg128, -b 4096 -ub 2048 -fa 1') },
   { id: 'C-5090-oss20-tg', role: 'check', source: C, engine: 'eng-kettle', gpus: [{ part: 'gpu-ember-g5-32', count: 1 }], split: 'none',
     model: 'mdl-ossia-20b', quant: 'MXFP4', kvType: 'f16', flashAttention: true, concurrency: 1,
     metric: 'decode', depth: TG128_DEPTH, value: meas(282.51, 'tok/s', C, 'tg128, -b 4096 -ub 2048 -fa 1') },
-  { id: 'C-4090-oss20-pp', role: 'check', source: C, engine: 'eng-kettle', gpus: [{ part: 'gpu-ember-g4-24', count: 1 }], split: 'none',
+  { id: 'C-4090-oss20-pp', role: 'fit', source: C, engine: 'eng-kettle', gpus: [{ part: 'gpu-ember-g4-24', count: 1 }], split: 'none',
     model: 'mdl-ossia-20b', quant: 'MXFP4', kvType: 'f16', flashAttention: true, concurrency: 1,
     metric: 'prefill', promptTokens: 2048, value: meas(8022.33, 'tok/s', C, 'pp2048, -ub 2048') },
   { id: 'C-5090-oss20-pp', role: 'check', source: C, engine: 'eng-kettle', gpus: [{ part: 'gpu-ember-g5-32', count: 1 }], split: 'none',
