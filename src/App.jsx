@@ -1,16 +1,43 @@
-import { catalog } from './data/index.js';
+import { useMemo, useState } from 'react';
+import { catalog, tagged } from './data/index.js';
+import { indexCatalog } from './sim/util.js';
+import { generateJobs, buildCost } from './jobs/index.js';
+import { JobBoard } from './ui/JobBoard.jsx';
+import { Shop } from './ui/Shop.jsx';
+import { BuildScreen } from './ui/BuildScreen.jsx';
+import { BudgetMeter } from './ui/BudgetMeter.jsx';
+import { emptyBuild, addPart, installed, simBuild } from './ui/buildState.js';
 
-// Placeholder shell. The game UI starts in stage 5; stages 1-3 build the data
-// layer and the simulation engine underneath it. The part counts below come
-// from the shipped catalog, so the real data is in the bundle and the dist
-// brand check scans it.
+const idx = indexCatalog(catalog);
+const TABS = [['jobs', 'Job board'], ['shop', 'Shop'], ['build', 'Build']];
+
 export default function App() {
-  const counts = Object.entries(catalog.parts).map(([k, v]) => `${v.length} ${k}`);
+  const [tab, setTab] = useState('jobs');
+  const [boardSeed, setBoardSeed] = useState(1);
+  const jobs = useMemo(() => generateJobs(catalog, { seed: boardSeed, count: 6 }), [boardSeed]);
+  const [activeJob, setActiveJob] = useState(null);
+  const [build, setBuild] = useState(emptyBuild);
+  const cost = buildCost(idx, simBuild(build)) + (build.rack ? idx.parts.get(build.rack).priceUSD : 0);
+  const counts = useMemo(() => {
+    const c = new Map();
+    for (const r of installed(idx, build)) c.set(r.id, (c.get(r.id) ?? 0) + r.count);
+    return c;
+  }, [build]);
+
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: 24 }}>
-      <h1>Five Nines</h1>
-      <p>Simulation engine in development. No playable UI yet.</p>
-      <p>Catalog: {counts.join(', ')}; {catalog.models.length} models; {catalog.engines.length} engines.</p>
-    </main>
+    <div className="app">
+      <nav className="topbar">
+        <div className="brand">Five Nines</div>
+        {TABS.map(([k, label]) => <button key={k} className={tab === k ? 'tab on' : 'tab'} onClick={() => setTab(k)} data-testid={`tab-${k}`}>{label}</button>)}
+        <div className="active-job">{activeJob ? <>Active: <b>{activeJob.client.name}</b></> : <span className="muted">No active job</span>}</div>
+      </nav>
+      <BudgetMeter cost={cost} budget={activeJob?.budgetUSD} />
+      <main>
+        {tab === 'jobs' && <JobBoard jobs={jobs} idx={idx} activeJob={activeJob} onReroll={() => setBoardSeed((s) => s + 1)}
+          onTake={(j) => { setActiveJob(j); setTab('shop'); }} />}
+        {tab === 'shop' && <Shop tagged={tagged} build={build} onAdd={(p) => setBuild((b) => addPart(b, idx.parts.get(p.id)))} countOf={(id) => counts.get(id)} />}
+        {tab === 'build' && <BuildScreen catalog={catalog} idx={idx} job={activeJob} build={build} setBuild={setBuild} />}
+      </main>
+    </div>
   );
 }

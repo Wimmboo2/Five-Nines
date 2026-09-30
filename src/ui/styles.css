@@ -1,0 +1,61 @@
+:root {
+  --bg: #11151c; --panel: #1a2029; --panel2: #222a35; --line: #2f3a48; --text: #e6ebf2; --muted: #8d99a8;
+  --accent: #4fb3ff; --ok: #45c46b; --warn: #e3b341; --bad: #ef5b5b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; min-width: 1100px; }
+button { background: var(--accent); color: #06121e; border: 0; border-radius: 4px; padding: 6px 12px; font-weight: 600; cursor: pointer; }
+button:disabled { background: var(--line); color: var(--muted); cursor: default; }
+button.small { padding: 2px 8px; font-size: 12px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+select { background: var(--panel2); color: var(--text); border: 1px solid var(--line); padding: 4px 6px; border-radius: 4px; }
+h2 { margin: 0 12px 0 0; font-size: 18px; }
+h4 { margin: 12px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.topbar { display: flex; align-items: center; gap: 6px; padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.brand { font-weight: 800; font-size: 18px; margin-right: 20px; letter-spacing: .03em; }
+.tab { background: transparent; color: var(--muted); }
+.tab.on { background: var(--panel2); color: var(--text); }
+.active-job { margin-left: auto; }
+main { padding: 16px 20px 40px; }
+.toolbar { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+.grid { display: grid; gap: 12px; }
+.grid.jobs { grid-template-columns: repeat(3, 1fr); }
+.grid.parts { grid-template-columns: repeat(4, 1fr); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; }
+.card.active { border-color: var(--accent); }
+.card header { display: flex; justify-content: space-between; gap: 8px; }
+.card footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 10px; }
+.client { font-weight: 700; font-size: 15px; }
+.money { text-align: right; }
+.big { font-size: 18px; font-weight: 700; }
+.kv { list-style: none; margin: 0; padding: 0; }
+.kv li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dotted var(--line); }
+.kv li > span:first-child { color: var(--muted); }
+.specs li { align-items: baseline; }
+.tv { text-align: right; }
+.tv .src { display: block; font-size: 10px; color: var(--muted); }
+.tv.tag-estimate { color: var(--warn); }
+.prio-row { display: grid; grid-template-columns: 90px 1fr 36px; align-items: center; gap: 6px; font-size: 12px; }
+.bar { background: var(--panel2); height: 6px; border-radius: 3px; }
+.bar > div { background: var(--accent); height: 100%; border-radius: 3px; }
+.budget { padding: 8px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.budget .label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+.budget .track { height: 8px; background: var(--panel2); border-radius: 4px; }
+.budget .fill { height: 100%; border-radius: 4px; background: var(--ok); }
+.budget.near .fill { background: var(--warn); }
+.budget.over .fill { background: var(--bad); }
+.build-layout { display: grid; grid-template-columns: 420px 1fr; gap: 12px; align-items: start; }
+.parts-table { width: 100%; border-collapse: collapse; }
+.parts-table td { padding: 4px; border-bottom: 1px dotted var(--line); }
+.temp-note { background: #3a2f10; border: 1px solid var(--warn); color: #f4d27a; padding: 6px 10px; border-radius: 4px; }
+.failures { background: #3a1616; border: 1px solid var(--bad); padding: 6px 10px; border-radius: 4px; }
+.failures ul { margin: 4px 0; padding-left: 18px; }
+.warnings { color: var(--warn); padding-left: 18px; }
+.checks { list-style: none; padding: 0; margin: 0; }
+.checks li { padding: 3px 0; display: flex; gap: 8px; align-items: center; }
+.checks .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: none; }
+.checks li.ok .dot { background: var(--ok); }
+.checks li.bad .dot { background: var(--bad); }
+.bad-text { color: var(--bad); }

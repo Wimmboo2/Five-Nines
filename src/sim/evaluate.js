@@ -71,7 +71,7 @@ export function checkHardware(idx, build) {
   }
   if (build.nvlinkBridges) {
     const bad = build.gpus.filter((g) => idx.parts.get(g.part).linkType !== 'nvlink');
-    if (bad.length) warnings.push('NVLink bridges only connect cards that support NVLink; the others talk over PCIe.');
+    if (bad.length) warnings.push('GPU bridges only connect cards that have a bridge connector; the others talk over PCIe.');
   }
   return { errors, warnings };
 }
@@ -188,7 +188,7 @@ export function evaluateBuild(catalog, build0, software, room, opts = {}) {
   // Game servers
   const mcResults = (software.gameServers ?? []).filter((g) => g.type === 'minecraft').map((g) => minecraftLoad(idx, build, g));
   const mcRamBytes = mcResults.reduce((a, m) => a + m.ramGB, 0) * idx.constants.memory.bytesPerMarketedGB;
-  mcResults.forEach((m) => { if (m.lagging) warnings.push(`Minecraft server with ${m.players} players needs ${m.mspt.toFixed(1)} ms per tick (budget 50 ms): it runs at ${m.tps.toFixed(1)} TPS.`); });
+  mcResults.forEach((m) => { if (m.lagging) warnings.push(`Game server with ${m.players} players needs ${m.mspt.toFixed(1)} ms per tick (budget 50 ms): it runs at ${m.tps.toFixed(1)} TPS.`); });
 
   // Inference
   let inference = null;

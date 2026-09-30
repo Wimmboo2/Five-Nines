@@ -144,3 +144,15 @@ fit: 31 cases, median |error| 4.8%, max |error| 36.4%
 check: 62 cases, median |error| 26.0%, max |error| 295.8%
 TOLERANCE (held-out median <= 25%, worst <= 60%): FAIL | cases over 60%: B-a100-8bf16, B-a100x4-70bf16, B-4090-8b-pp, B-a6000-8b-pp, B-l40s-8bf16-pp, B-l40s-8b-pp, E-tp2, E-tp4, G-a5000-tp1-c64, G-a5000-tp4-c64, H-4090-q7-tp1, H-4090-q7-tp2, H-4090-l8-tp2
 ```
+
+## Update 2026-09-30 (Part 0a): datacenter benchmarks and HBM factor
+
+- New set I (XD llama.cpp tables): H100 PCIe (calibration-only hardware) and A100 SXM, 1x and 4x, 8B and 70B, Q4_K_M and F16,
+  tg8192 and prompt-processing rows. The two H100 PCIe single-GPU 8B decode rows are fit cases; the other 14 are held out.
+- With the old constants the new held-out rows ran 30-80% too fast: one bandwidth efficiency could not fit GDDR and HBM cards.
+  Added `hbmBwFactor` (llama.cpp only, fitted on the HBM single-stream decode fit rows; vLLM keeps 1 for lack of data).
+- Result: fit 33 cases, median 4.7%, max 35.8%. Held-out 74 cases, median 19.2% (passes the 25% line), max 299% (fails the 60% line).
+- Still over 60%: I-a100sxmx4-8b (4x layer split, small model), I-h100p-8bf16-pp (F16 prefill 93% high), B-*-pp Q4 prefill rows,
+  E-tp2/E-tp4 (vLLM TP on A100 SXM "NVLink pairs, PCIe across pairs": measured TP is slower than TP1, the sim is 2-3x faster),
+  G-a5000 c64 rows, H-4090 TP rows. Tolerance verdict: FAIL.
+- The 19 models added in Part 0b have no benchmarks yet; their speeds are model-geometry predictions only.
