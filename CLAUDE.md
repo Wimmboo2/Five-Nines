@@ -2,6 +2,8 @@
 
 2D browser game: take client jobs to build servers, homelabs and mini datacenters, configure the whole hardware and software stack, deliver it. The depth is a simulation driven by real hardware specs.
 
+- **New session? Read docs/handoff.md first.** It has the current state, next steps and open questions.
+
 - The design brief is `docs/design-plan.md`. Read it before doing anything.
 - Every decision the user has made since the brief is in `docs/decisions.md`. It overrides the brief where they differ.
 - Research notes and sources are in `docs/research/`.
