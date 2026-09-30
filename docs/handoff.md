@@ -1,5 +1,7 @@
 # Five Nines: session handoff (2026-09-30)
 
+> **Update (later the same day):** the stage 4-5 fixes (§7 step 1) are done (commit "Stage 4-5 fixes"). Calibration now **passes** the tolerance: held-out median 11.4%, worst 50.7%, after reference-only rows plus two new fitted constants. See `docs/calibration.md` "Update: tolerance pass" and `docs/decisions.md`. Where §2, §6 and §9 disagree with this, this note is current.
+
 Tags used below:
 - **[V]** = verified this session: I ran it or opened the source.
 - **[U]** = unverified: from memory, a search snippet, or inferred.

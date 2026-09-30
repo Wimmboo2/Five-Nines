@@ -30,6 +30,14 @@ function lcppScore(id, gpu, tg, pp, note) {
   ];
 }
 
+// Reference-only rows (role 'ref'): shown by the calibration table, not counted
+// toward the tolerance. Decided by the user 2026-09-30, logged in docs/decisions.md.
+const REF_LCPP_2024 = 'Run in May 2024 (XD snapshots). Until llama.cpp commit a818f3028 (2024-06-24, PR #8075 "CUDA: use MMQ instead of cuBLAS by default"), quantized prompt processing with batch > MMQ_MAX_BATCH_SIZE on GPUs with good fp16 dequantized the weights and ran cuBLAS (ggml-cuda.cu at 8f7080bf4). Current builds, which the sim models and set A measures, run MMQ kernels. Different code path, so not a check of the sim.';
+const REF_L40S = 'Data outlier: the same table has L40S F16 prompt eval at 2,491.65 tok/s, below its own Q4_K_M row (5,908.52) and below the RTX 4000 Ada F16 row (2,951.87), while every other GPU in the table is faster at F16 than at Q4_K_M.';
+const REF_E = 'Single source where TP2/TP4 decode is slower than TP1, contradicting the other TP data (sets G and H); the user ruled out fitting to it. Also vLLM 0.9.2 (2025-07-08), older than the build the sim models.';
+const REF_G = 'vLLM 0.7.3 (released 2025-02-20, per PyPI), an older engine build than the one the sim models (set D, 2026-09).';
+const REF_H = 'Page published 2025-03-28 with no vLLM version stated, so vLLM 0.8.2 (2025-03-25) or older, an older engine build than the one the sim models (set D, 2026-09).';
+
 function xd(id, gpu, count, model, quant, value, role = 'check') {
   return { id: `B-${id}`, role, source: B, engine: 'eng-kettle', gpus: [{ part: gpu, count }], split: count > 1 ? 'layer' : 'none',
     model, quant, kvType: 'f16', flashAttention: false, concurrency: 1,
@@ -50,12 +58,13 @@ export const benchmarks = [
   ...lcppScore('a100', 'gpu-bastion-h80', 200.90, 5285.96, 'scoreboard says "A100 80 GB HBM2e" without PCIe/SXM; mapped to the PCIe card'),
   ...lcppScore('h100sxm', 'gpu-bastion-x80-sxm', 280.74, 11263.29, '"H100 80 GB HBM3" = SXM5'),
 
-  // B: multi-GPU layer split and bigger models (held out)
+  // B: multi-GPU layer split and bigger models (held out, except the two 2-GPU
+  // 8B rows, which fit the llama.cpp stage handoff cost)
   xd('3090-8b', 'gpu-ember-g3-24', 1, L8, 'Q4_K_M', 111.74),
-  xd('3090x2-8b', 'gpu-ember-g3-24', 2, L8, 'Q4_K_M', 108.07),
+  xd('3090x2-8b', 'gpu-ember-g3-24', 2, L8, 'Q4_K_M', 108.07, 'fit'),
   xd('3090x4-8b', 'gpu-ember-g3-24', 4, L8, 'Q4_K_M', 104.94),
   xd('4090-8b', 'gpu-ember-g4-24', 1, L8, 'Q4_K_M', 127.74),
-  xd('4090x2-8b', 'gpu-ember-g4-24', 2, L8, 'Q4_K_M', 122.56),
+  xd('4090x2-8b', 'gpu-ember-g4-24', 2, L8, 'Q4_K_M', 122.56, 'fit'),
   xd('4090x4-8b', 'gpu-ember-g4-24', 4, L8, 'Q4_K_M', 117.61),
   xd('a6000-8b', 'gpu-atelier-a48', 1, L8, 'Q4_K_M', 102.22),
   xd('a6000x4-8b', 'gpu-atelier-a48', 4, L8, 'Q4_K_M', 93.73),
@@ -108,20 +117,20 @@ export const benchmarks = [
   { id: 'I-h100p-8bf16-pp', role: 'check', source: B, engine: 'eng-kettle', gpus: [{ part: 'cal-h100-pcie', count: 1 }], split: 'none',
     model: L8, quant: 'BF16', kvType: 'f16', flashAttention: false, concurrency: 1,
     metric: 'prefill', promptTokens: 1024, value: meas(10342.63, 'tok/s', B, 'average 1024-token prompt eval, F16 GGUF') },
-  { id: 'I-h100p-8b-pp', role: 'check', source: B, engine: 'eng-kettle', gpus: [{ part: 'cal-h100-pcie', count: 1 }], split: 'none',
+  { id: 'I-h100p-8b-pp', role: 'ref', refReason: REF_LCPP_2024, source: B, engine: 'eng-kettle', gpus: [{ part: 'cal-h100-pcie', count: 1 }], split: 'none',
     model: L8, quant: 'Q4_K_M', kvType: 'f16', flashAttention: false, concurrency: 1,
     metric: 'prefill', promptTokens: 1024, value: meas(7760.16, 'tok/s', B, 'average 1024-token prompt eval, Q4_K_M') },
 
   // B (prompt processing): average 1024-token prompt eval speed. F16 rows fit the
-  // fp16 prefill efficiency; Q4_K_M rows are held out. The L40S F16 row is held
-  // out: it is inconsistent with the same source's L40S Q4_K_M row (F16 prompt
+  // fp16 prefill efficiency; Q4_K_M rows are reference-only (old llama.cpp code
+  // path, REF_LCPP_2024). The L40S F16 row is reference-only: it is inconsistent with the same source's L40S Q4_K_M row (F16 prompt
   // eval 2,491 vs Q4 5,909, while every other GPU in the table is faster at F16).
   ...[['3090', 'gpu-ember-g3-24', 4239.64, 3865.39], ['4090', 'gpu-ember-g4-24', 9056.26, 6898.71], ['a6000', 'gpu-atelier-a48', 4315.18, 3621.81],
     ['l40s', 'gpu-bastion-p48', 2491.65, 5908.52], ['a100', 'gpu-bastion-h80', 7504.24, 5800.48]].flatMap(([n, gpu, f16, q4]) => [
-    { id: `B-${n}-8bf16-pp`, role: n === 'l40s' ? 'check' : 'fit', source: B, engine: 'eng-kettle', gpus: [{ part: gpu, count: 1 }], split: 'none',
+    { id: `B-${n}-8bf16-pp`, ...(n === 'l40s' ? { role: 'ref', refReason: REF_L40S } : { role: 'fit' }), source: B, engine: 'eng-kettle', gpus: [{ part: gpu, count: 1 }], split: 'none',
       model: L8, quant: 'BF16', kvType: 'f16', flashAttention: false, concurrency: 1,
       metric: 'prefill', promptTokens: 1024, value: meas(f16, 'tok/s', B, 'average 1024-token prompt eval, F16 GGUF') },
-    { id: `B-${n}-8b-pp`, role: 'check', source: B, engine: 'eng-kettle', gpus: [{ part: gpu, count: 1 }], split: 'none',
+    { id: `B-${n}-8b-pp`, role: 'ref', refReason: REF_LCPP_2024, source: B, engine: 'eng-kettle', gpus: [{ part: gpu, count: 1 }], split: 'none',
       model: L8, quant: 'Q4_K_M', kvType: 'f16', flashAttention: false, concurrency: 1,
       metric: 'prefill', promptTokens: 1024, value: meas(q4, 'tok/s', B, 'average 1024-token prompt eval, Q4_K_M') },
   ]),
@@ -161,7 +170,7 @@ export const benchmarks = [
 
   // E: vLLM tensor/pipeline parallel on A100 SXM (held out; the only TP data point found)
   ...[['tp1', 1, 'none', 22.16], ['tp2', 2, 'tp', 20.53], ['pp2', 2, 'pp', 21.08], ['tp4', 4, 'tp', 18.55]].map(([n, count, split, v]) => ({
-    id: `E-${n}`, role: 'check', source: E, engine: 'eng-sluice', gpus: [{ part: 'gpu-bastion-h80-sxm', count }], split,
+    id: `E-${n}`, role: 'ref', refReason: REF_E, source: E, engine: 'eng-sluice', gpus: [{ part: 'gpu-bastion-h80-sxm', count }], split,
     model: 'mdl-quill-25-32b', quant: 'BF16', kvType: 'auto', flashAttention: true, concurrency: 1,
     metric: 'decode', depth: ARXIV_DEPTH, value: meas(v, 'tok/s', E, 'chat workload 64 in / 128 out, vLLM v0.9.2; "NVLink pairs, PCIe across pairs"'),
   })),
@@ -170,7 +179,7 @@ export const benchmarks = [
   // Llama-3.1-8B GPTQ-INT4 (Marlin), vLLM 0.7.3. Held out. AWQ weights stand in
   // for GPTQ-INT4 (both 4-bit group-quantized, similar file size).
   ...[['tp1-c8', 1, 'none', 8, 704.35], ['tp4-c8', 4, 'tp', 8, 1056.24], ['tp1-c64', 1, 'none', 64, 2391.44], ['tp4-c64', 4, 'tp', 64, 3735.41]].map(([n, count, split, conc, v]) => ({
-    id: `G-a5000-${n}`, role: 'check', source: 'bench-arxiv-a5000', engine: 'eng-sluice', gpus: [{ part: 'cal-a5000', count }], split,
+    id: `G-a5000-${n}`, role: 'ref', refReason: REF_G, source: 'bench-arxiv-a5000', engine: 'eng-sluice', gpus: [{ part: 'cal-a5000', count }], split,
     model: 'mdl-tamarin-31-8b', quant: 'AWQ', kvType: 'auto', flashAttention: true, concurrency: conc,
     metric: 'aggregate', depth: est(conc === 8 ? 64 : 128, 'tokens', 'Table 8 lists T=128 (c=8) and T=256 (c=64) as the workload length; the input length was not read, so mean depth is taken as half of T.'),
     value: meas(v, 'tok/s', 'bench-arxiv-a5000', 'decode tokens/s, Table 8'),
@@ -181,7 +190,7 @@ export const benchmarks = [
   // Qwen2.5-7B architecture; DeepSeek-R1-Distill-Llama-8B has the Llama-3.1-8B one.
   ...[['q7-tp1', 'mdl-quill-25-7b', 1, 'none', 3965.41], ['q7-tp2', 'mdl-quill-25-7b', 2, 'tp', 5479.26],
     ['l8-tp1', 'mdl-tamarin-31-8b', 1, 'none', 2699.72], ['l8-tp2', 'mdl-tamarin-31-8b', 2, 'tp', 3959.14]].map(([n, m, count, split, v]) => ({
-    id: `H-4090-${n}`, role: 'check', source: 'bench-dbm-tp', engine: 'eng-sluice', gpus: [{ part: 'gpu-ember-g4-24', count }], split,
+    id: `H-4090-${n}`, role: 'ref', refReason: REF_H, source: 'bench-dbm-tp', engine: 'eng-sluice', gpus: [{ part: 'gpu-ember-g4-24', count }], split,
     model: m, quant: 'BF16', kvType: 'auto', flashAttention: true, concurrency: 300, kvLimited: true, maxRunTokens: 700,
     metric: 'aggregate', depth: est(400, 'tokens', '100 input tokens + mean of 600 output tokens.'),
     value: meas(v, 'tok/s', 'bench-dbm-tp', 'total throughput at 300 concurrent requests; architecture-equivalent distilled model'),

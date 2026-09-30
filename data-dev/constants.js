@@ -52,7 +52,6 @@ export const constants = {
       'pcie-host': est(60, 'us', 'Without P2P, data is staged through host memory (two PCIe crossings and a host copy). Assumed.'),
     },
     tpSyncUsPerLayer: est(10, 'us', 'Per-layer synchronization cost in a tensor-parallel group on top of the all-reduce itself: each layer adds two collective kernels and the ranks wait for the slowest one. Taken as two kernel launches of ~5 us each. NOT fitted: the only published single-stream TP measurement (arXiv 2512.01644) is deliberately not used to set it (user decision). Revisit when more TP data exists.'),
-    stageHandoffUs: est(30, 'us', 'Passing hidden-state activations between sequential pipeline stages (one small PCIe copy plus synchronization). Assumed.'),
   },
 
   memory: {

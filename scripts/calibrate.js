@@ -61,24 +61,35 @@ const pct = (e) => `${((Math.exp(e) - 1) * 100).toFixed(1)}%`;
 function fit() {
   const out = {};
   for (const eng of ['eng-kettle', 'eng-sluice']) {
-    const base = { ...idx.engines.get(eng).perf, moePrefillFactor: 1, seqLayerOverheadUs: 0, hbmBwFactor: 1 };
+    const base = { ...idx.engines.get(eng).perf, moePrefillFactor: 1, seqLayerOverheadUs: 0, hbmBwFactor: 1, prefillTokenLayerOverheadUs: 0, stageHandoffUs: 0 };
     const r = {};
     const isMoe = (b) => !!idx.models.get(b.model).moe;
     const path = (b) => idx.formatComputePath[eng][b.quant];
     // 1. prefill efficiencies (dense models)
+    //    plus a per-token-per-layer non-matmul overhead shared by both paths
+    //    (outer loop), with the two path efficiencies refitted for each value.
     const ppQuant = pick(eng, (b) => b.metric === 'prefill' && !isMoe(b) && path(b) === 'cuda-core');
-    if (ppQuant.length) {
-      const g = grid1(ppQuant, 'prefillEfficiencyQuant', 0.2, 5.0, 480, base);
-      base.prefillEfficiencyQuant = g.v; r.prefillEfficiencyQuant = { v: g.v, e: g.e, cases: ppQuant };
-    }
     const ppFp16 = pick(eng, (b) => b.metric === 'prefill' && !isMoe(b) && path(b) !== 'cuda-core');
-    if (ppFp16.length) {
-      const g = grid1(ppFp16, 'prefillEfficiencyFp16', 0.02, 1.0, 196, base);
-      base.prefillEfficiencyFp16 = g.v; r.prefillEfficiencyFp16 = { v: g.v, e: g.e, cases: ppFp16 };
+    if (ppQuant.length || ppFp16.length) {
+      let best = null;
+      for (let i = 0; i <= 40; i++) {
+        const ov = i * 0.1;
+        const b0 = { ...base, prefillTokenLayerOverheadUs: ov };
+        const gq = ppQuant.length ? grid1(ppQuant, 'prefillEfficiencyQuant', 0.2, 6.0, 290, b0) : null;
+        const gf = ppFp16.length ? grid1(ppFp16, 'prefillEfficiencyFp16', 0.02, 1.2, 236, b0) : null;
+        const all = rms([...(gq ? caseErrors(ppQuant, { ...b0, prefillEfficiencyQuant: gq.v }) : []),
+          ...(gf ? caseErrors(ppFp16, { ...b0, prefillEfficiencyFp16: gf.v }) : [])]);
+        if (!best || all < best.e) best = { ov, gq, gf, e: all };
+      }
+      base.prefillTokenLayerOverheadUs = best.ov;
+      r.prefillTokenLayerOverheadUs = { v: best.ov, e: best.e, cases: [...ppQuant, ...ppFp16] };
+      if (best.gq) { base.prefillEfficiencyQuant = best.gq.v; r.prefillEfficiencyQuant = { v: best.gq.v, e: best.gq.e, cases: ppQuant }; }
+      if (best.gf) { base.prefillEfficiencyFp16 = best.gf.v; r.prefillEfficiencyFp16 = { v: best.gf.v, e: best.gf.e, cases: ppFp16 }; }
     }
     // 2. single-stream decode, dense models: bandwidth efficiency + per-layer overhead
     const hbm = (b) => b.gpus.every((g) => String(idx.parts.get(g.part).memType).startsWith('HBM'));
-    const tg = pick(eng, (b) => b.metric === 'decode' && b.concurrency === 1 && !isMoe(b) && !hbm(b));
+    const nGpu = (b) => b.gpus.reduce((a, g) => a + g.count, 0);
+    const tg = pick(eng, (b) => b.metric === 'decode' && b.concurrency === 1 && !isMoe(b) && !hbm(b) && nGpu(b) === 1);
     if (tg.length) {
       let g = grid2(tg, 'bwEfficiency', [0.4, 1.0, 30], 'layerOverheadCycles', [0, 400000, 40], base);
       g = grid2(tg, 'bwEfficiency', [Math.max(0.3, g.v1 - 0.03), Math.min(1, g.v1 + 0.03), 30],
@@ -88,10 +99,32 @@ function fit() {
       r.layerOverheadCycles = { v: g.v2, e: g.e, cases: tg };
     }
     // 2b. the same decode on HBM cards: one extra bandwidth factor
-    const tgH = pick(eng, (b) => b.metric === 'decode' && b.concurrency === 1 && !isMoe(b) && hbm(b));
+    const tgH = pick(eng, (b) => b.metric === 'decode' && b.concurrency === 1 && !isMoe(b) && hbm(b) && nGpu(b) === 1);
     if (tgH.length) {
       const g = grid1(tgH, 'hbmBwFactor', 0.3, 1.0, 140, base);
       base.hbmBwFactor = g.v; r.hbmBwFactor = { v: g.v, e: g.e, cases: tgH };
+    }
+    // 2c. multi-GPU layer split decode: fixed cost per stage handoff
+    const tgSplit = pick(eng, (b) => b.metric === 'decode' && b.concurrency === 1 && !isMoe(b) && nGpu(b) > 1 && b.split === 'layer');
+    if (tgSplit.length) {
+      //    Fitted on the slowdown vs the same source's single-GPU run of the
+      //    same model and card, so a source-wide speed offset (older build,
+      //    different host) doesn't leak into the handoff cost.
+      const single = (b) => cases.find((x) => x.source === b.source && x.model === b.model && x.quant === b.quant
+        && x.metric === 'decode' && x.gpus.length === 1 && x.gpus[0].count === 1 && x.gpus[0].part === b.gpus[0].part && x.depth === b.depth);
+      const pairs = tgSplit.map((b) => [b, single(b)]).filter(([, s]) => s);
+      let best = null;
+      for (let i = 0; i <= 600; i++) {
+        const v = i * 5;
+        const o = { ...base, stageHandoffUs: v };
+        const e = rms(pairs.map(([b, s1]) => {
+          const rb = simulateBenchmark(idx, b, o); const rs = simulateBenchmark(idx, s1, o);
+          return Math.log((rb.value / rs.value) / (b.value / s1.value));
+        }));
+        if (!best || e < best.e) best = { v, e };
+      }
+      base.stageHandoffUs = best.v;
+      r.stageHandoffUs = { v: best.v, e: best.e, cases: pairs.map(([b]) => b), rel: pairs.map(([, s1]) => s1) };
     }
     // 3. MoE: extra per-layer decode overhead, and prefill slowdown
     const moeTg = pick(eng, (b) => b.metric === 'decode' && b.concurrency === 1 && isMoe(b));
@@ -122,10 +155,10 @@ function fit() {
 }
 
 function writeFitted(fitRes) {
-  const units = { bwEfficiency: 'fraction', layerOverheadCycles: 'cycles', prefillEfficiencyQuant: 'x fp32Tflops', prefillEfficiencyFp16: 'fraction', moeLayerOverheadCycles: 'cycles', moePrefillFactor: 'fraction', seqLayerOverheadUs: 'us', hbmBwFactor: 'fraction' };
+  const units = { bwEfficiency: 'fraction', layerOverheadCycles: 'cycles', prefillEfficiencyQuant: 'x fp32Tflops', prefillEfficiencyFp16: 'fraction', moeLayerOverheadCycles: 'cycles', moePrefillFactor: 'fraction', seqLayerOverheadUs: 'us', hbmBwFactor: 'fraction', prefillTokenLayerOverheadUs: 'us', stageHandoffUs: 'us' };
   const round = (k, v) => (k.endsWith('Cycles') ? Math.round(v) : Math.round(v * 10000) / 10000);
   const line = (k, r, fallback) => {
-    if (r) return `est(${round(k, r.v)}, '${units[k]}', ${JSON.stringify(`Fitted by scripts/calibrate.js --fit to ${r.cases.length} published cases (${ids(r.cases)}); in-sample RMS error ${pct(r.e)} (log-space).`)})`;
+    if (r) return `est(${round(k, r.v)}, '${units[k]}', ${JSON.stringify(`Fitted by scripts/calibrate.js --fit to ${r.cases.length} published cases (${ids(r.cases)})${r.rel ? ` as slowdown relative to the same source's single-GPU rows (${ids(r.rel)})` : ''}; in-sample RMS error ${pct(r.e)} (log-space).`)})`;
     return fallback;
   };
   const k = fitRes['eng-kettle'];
@@ -134,11 +167,14 @@ function writeFitted(fitRes) {
   const kettle = Object.keys(units).map((key) => `    ${key}: ${line(key, k[key], `est(0, '${units[key]}', 'No fit data.')`)},`).join('\n');
   const sluice = Object.keys(units).map((key) => {
     if (v[key]) return `    ${key}: ${line(key, v[key])},`;
+    if (key === 'prefillTokenLayerOverheadUs') return `    ${key}: est(0, 'us', 'No prefill benchmark for this engine in the fit set; its matmul efficiency is fitted on aggregate throughput, which absorbs this overhead, so it is not applied (0).'),`;
     if (key === 'hbmBwFactor') return `    ${key}: est(1, 'fraction', 'No single-stream vLLM decode data on HBM cards in the fit set; not applied (1). The held-out A100 SXM vLLM cases (set E) check this.'),`;
     return `    ${key}: ${copy(k, key, `No vLLM data for this constant; set equal to the fitted llama.cpp value.`)},`;
   }).join('\n');
   const loomSrc = { ...k, ...v };
-  const loom = Object.keys(units).map((key) => `    ${key}: ${copy(loomSrc, key, 'No SGLang benchmark on catalog hardware was found; set equal to the fitted vLLM value (or llama.cpp where vLLM had no data).')},`).join('\n');
+  const loom = Object.keys(units).map((key) => key === 'prefillTokenLayerOverheadUs'
+    ? `    ${key}: est(0, 'us', 'No SGLang benchmark on catalog hardware was found; set equal to the vLLM value (not applied, 0).'),`
+    : `    ${key}: ${copy(loomSrc, key, 'No SGLang benchmark on catalog hardware was found; set equal to the fitted vLLM value (or llama.cpp where vLLM had no data).')},`).join('\n');
   const text = `// GENERATED by \`npm run calibrate -- --fit\` on ${new Date().toISOString().slice(0, 10)}. Do not edit by hand.
 // Every value is an estimate fitted to published benchmarks (see reasoning).
 import { est } from './lib.js';
@@ -171,12 +207,14 @@ function table(override) {
       pad(Number.isFinite(r.sim) ? r.sim.toFixed(1) : '-', 10), r.err === null ? 'ERR' : `${(r.err * 100).toFixed(1)}%`, r.note ? `  ${r.note}` : '');
   }
   const stats = {};
-  for (const role of ['fit', 'check']) {
+  // 'ref' rows are reference-only (older engine builds, a data outlier; see
+  // their refReason) and are not counted toward the tolerance.
+  for (const role of ['fit', 'check', 'ref']) {
     const errs = rows.filter((r) => r.role === role && r.err !== null).map((r) => Math.abs(r.err));
     errs.sort((a, b) => a - b);
     const med = errs.length % 2 ? errs[(errs.length - 1) / 2] : (errs[errs.length / 2 - 1] + errs[errs.length / 2]) / 2;
     stats[role] = { med, max: Math.max(...errs), n: errs.length };
-    console.log(`${role}: ${errs.length} cases, median |error| ${(med * 100).toFixed(1)}%, max |error| ${(stats[role].max * 100).toFixed(1)}%`);
+    console.log(`${role}${role === 'ref' ? ' (reference only, not counted)' : ''}: ${errs.length} cases, median |error| ${(med * 100).toFixed(1)}%, max |error| ${(stats[role].max * 100).toFixed(1)}%`);
   }
   // Tolerance agreed with the user (docs/decisions.md): held-out median <= 25%, worst <= 60%.
   const ok = stats.check.med <= 0.25 && stats.check.max <= 0.60;

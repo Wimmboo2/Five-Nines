@@ -194,7 +194,9 @@ function handoffSeconds(c, B) {
   const { idx, model } = c;
   const bytes = B * model.hidden * idx.constants.inference.activationBytes;
   const gen4 = idx.constants.pcie.gen4x16GBs * GB;
-  return idx.constants.interconnect.stageHandoffUs * 1e-6 + bytes / gen4;
+  // Fixed cost per handoff (copy launch, sync, host round trip): engine
+  // constant fitted on multi-GPU layer-split decode (data-dev/fitted-perf.js).
+  return (c.perf.stageHandoffUs ?? 0) * 1e-6 + bytes / gen4;
 }
 
 export function decodeRate(c, B, depth) {
@@ -234,7 +236,9 @@ export function prefillSeconds(c, promptTokens) {
           + s.layers * idx.constants.interconnect.tpSyncUsPerLayer * 1e-6;
       }
       const cyclesPerLayer = perf.layerOverheadCycles + (model.moe ? perf.moeLayerOverheadCycles : 0);
-      return slowest + comm + s.layers * cyclesPerLayer / (minClock * 1e6);
+      // Non-matmul work per prompt token per layer (norms, rope, softmax, copies).
+      const perTok = ub * s.layers * (perf.prefillTokenLayerOverheadUs ?? 0) * 1e-6;
+      return slowest + comm + perTok + s.layers * cyclesPerLayer / (minClock * 1e6);
     }
     // CPU work: compute-bound on CPU cores (estimate constant).
     const cpu = idx.parts.get(build.cpu);

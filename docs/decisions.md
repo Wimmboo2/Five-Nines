@@ -80,3 +80,11 @@ The user chose "keep, log for sign-off" (2026-09-30, stage 4-5). These are game-
 - Homelab: Hobbyist tinkerer 35/35/15/5/10 (inference, mixed); Remote worker 25/20/35/10/10 (inference); Student on a budget 25/50/10/10/5 (inference, game server); Gaming group host 40/30/10/10/10 (game server, mixed).
 - Server: Small law office 25/25/20/15/15 (inference); Game server host 45/25/5/15/10 (game server, mixed); AI startup 50/20/5/15/10 (inference, mixed).
 - Datacenter (noise not judged): Research lab 50/25/0/15/10; Inference provider 40/20/0/30/10; University cluster 35/40/0/15/10 (all inference).
+
+## 2026-09-30: calibration tolerance round (after stage 5)
+
+- **Set E** (the arXiv vLLM TP point): reference-only, not counted toward the tolerance. It contradicts sets G/H, and fitting to it was already ruled out.
+- **Rows from older engine builds:** reference-only, with the build and reason stored on each row (`refReason`). Applied to: XD Q4_K_M prefill rows (llama.cpp before PR #8075, a different code path; XD decode and F16 prefill rows use the same path in both eras and stay counted), set G (vLLM 0.7.3), set H (vLLM <= 0.8.2 by publish date). Note: Claude scoped the XD part to the rows whose code path changed, not every XD row; flag it if you wanted all of XD out.
+- **`B-l40s-8bf16-pp`:** data outlier, reference-only.
+- **Fix method:** research + model fix. Added `prefillTokenLayerOverheadUs` (fitted) and made `stageHandoffUs` a fitted engine constant (was an assumed 30 us). To fit the handoff cost, Claude promoted the two 2-GPU XD rows (`B-3090x2-8b`, `B-4090x2-8b`) from check to fit, since no multi-GPU fit row existed. Flag it if you'd rather keep those held out. Details in `docs/calibration.md`.
+- **Result:** held-out median 11.4%, worst 50.7%, **PASS**.

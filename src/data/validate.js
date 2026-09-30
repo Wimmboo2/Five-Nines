@@ -88,7 +88,8 @@ export function validateBenchmarks(benchmarks, ctx) {
   const errors = [];
   for (const b of benchmarks) {
     const where = `benchmark ${b.id}`;
-    if (!['fit', 'check'].includes(b.role)) errors.push(`${where}: role must be fit or check`);
+    if (!['fit', 'check', 'ref'].includes(b.role)) errors.push(`${where}: role must be fit, check or ref`);
+    if (b.role === 'ref' && !(typeof b.refReason === 'string' && b.refReason.length >= 40)) errors.push(`${where}: a reference-only row needs a refReason`);
     if (!ctx.sourceIds.has(b.source)) errors.push(`${where}: unknown source ${b.source}`);
     if (!isTaggedLike(b.value) || b.value.tag !== 'measured') errors.push(`${where}: value must be a measured tagged value`);
     if (!ctx.engineIds.has(b.engine)) errors.push(`${where}: unknown engine ${b.engine}`);
