@@ -17,7 +17,7 @@ export default function App() {
   const jobs = useMemo(() => generateJobs(catalog, { seed: boardSeed, count: 6 }), [boardSeed]);
   const [activeJob, setActiveJob] = useState(null);
   const [build, setBuild] = useState(emptyBuild);
-  const cost = buildCost(idx, simBuild(build)) + (build.rack ? idx.parts.get(build.rack).priceUSD : 0);
+  const cost = buildCost(idx, simBuild(build));
   const counts = useMemo(() => {
     const c = new Map();
     for (const r of installed(idx, build)) c.set(r.id, (c.get(r.id) ?? 0) + r.count);

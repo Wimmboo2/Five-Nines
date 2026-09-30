@@ -19,7 +19,11 @@ export function addPart(build, part) {
   } else if (SINGLE[cat]) {
     const key = SINGLE[cat];
     if (b[key] === part.id && key === 'cpu') b.cpuCount += 1;
-    else if (b[key] === part.id && key === 'psu') b.psuCount += 1;
+    else if (b[key] === part.id && key === 'psu') {
+      // Only server PSU modules stack (they share load in a node's bays); an ATX
+      // PSU is one unit, so adding the same one again does nothing.
+      if (part.formFactor === 'module') b.psuCount += 1;
+    }
     else {
       b[key] = part.id;
       if (key === 'cpu') b.cpuCount = 1;
@@ -56,7 +60,6 @@ export function installed(idx, build) {
 // The build without empty slots, as evaluateBuild expects it.
 export function simBuild(build) {
   const b = { ...build };
-  for (const k of ['chassis', 'cooler', 'pdu']) if (!b[k]) delete b[k];
-  delete b.rack;
+  for (const k of ['chassis', 'cooler', 'pdu', 'rack']) if (!b[k]) delete b[k];
   return b;
 }

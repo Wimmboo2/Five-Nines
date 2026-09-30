@@ -13,5 +13,6 @@ export function buildCost(idx, build) {
   for (const f of build.fans ?? []) usd += p(f.part) * (f.count ?? 1);
   for (const n of build.network ?? []) usd += p(n.part) * (n.count ?? 1);
   usd += p(build.pdu);
+  usd += p(build.rack);
   return usd;
 }

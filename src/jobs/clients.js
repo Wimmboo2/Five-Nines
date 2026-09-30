@@ -3,6 +3,8 @@
 // priorities: weight of each scoring axis in percent (they sum to 100).
 // Axes: performance, budget, power, noise, temperature.
 
+// Values picked by Claude, pending the user's sign-off: see docs/decisions.md,
+// "Game-design values picked by Claude, pending sign-off".
 export const CLIENTS = [
   // homelab
   { id: 'cl-tinkerer', tier: 'homelab', name: 'Hobbyist tinkerer', jobTypes: ['inference', 'mixed'],

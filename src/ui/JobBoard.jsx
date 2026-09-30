@@ -32,7 +32,9 @@ export function JobCard({ job, catalogIdx, active, onTake }) {
           {t.tokPerSec && <li><span>Speed per user</span><b>{num(t.tokPerSec.value)} tok/s at {num(t.tokPerSec.atContext)} ctx</b></li>}
           {t.tps && <li><span>Game server</span><b>{t.tps.value} TPS with {t.tps.players} players</b></li>}
           <li><span>Power limit</span><b>{num(t.powerLimitW)} W at the wall</b></li>
-          {t.noiseLimitDBA != null && <li><span>Noise limit</span><b>{t.noiseLimitDBA} dBA at {num(r.listenerDistanceM, 1)} m</b></li>}
+          {t.noiseLimitDBA != null
+            ? <li><span>Noise limit</span><b>{t.noiseLimitDBA} dBA at {num(r.listenerDistanceM, 1)} m</b></li>
+            : <li><span>Noise</span><b>not judged (data hall)</b></li>}
           <li><span>Room temperature limit</span><b>{num(t.roomTempLimitC, 1)} C</b></li>
         </ul>
       </section>

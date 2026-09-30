@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { dev } from '../scripts/dev-data.js';
 import { buildGameData, resolve } from '../src/data/build.js';
 import { indexCatalog } from '../src/sim/util.js';
-import { generateJob, generateJobs, evaluateForJob, scoreDelivery, SCORING, CLIENTS } from '../src/jobs/index.js';
+import { generateJob, generateJobs, evaluateForJob, scoreDelivery, SCORING, CLIENTS, buildCost } from '../src/jobs/index.js';
+import { emptyBuild, addPart, simBuild } from '../src/ui/buildState.js';
 
 const catalog = resolve(buildGameData(dev));
 const idx = indexCatalog(catalog);
@@ -117,5 +118,30 @@ describe('scoreDelivery (stage 4)', () => {
     expect(s.axes.power).toBeCloseTo(50, 6);
     expect(s.axes.noise).toBeCloseTo(50, 6);
     expect(s.axes.temperature).toBeCloseTo(50, 6);
+  });
+});
+
+describe('build state and cost (stage 4-5 fixes)', () => {
+  const parts = [...idx.parts.values()];
+  const atx = parts.find((p) => p.category === 'psu' && p.formFactor === 'atx');
+  const mod = parts.find((p) => p.category === 'psu' && p.formFactor === 'module');
+  const rack = parts.find((p) => p.category === 'rack');
+
+  it('adding the same ATX PSU twice installs and charges one', () => {
+    const b = addPart(addPart(emptyBuild(), atx), atx);
+    expect(b.psuCount).toBe(1);
+    expect(buildCost(idx, simBuild(b))).toBe(atx.priceUSD);
+  });
+
+  it('adding the same PSU module twice installs two', () => {
+    const b = addPart(addPart(emptyBuild(), mod), mod);
+    expect(b.psuCount).toBe(2);
+    expect(buildCost(idx, simBuild(b))).toBe(2 * mod.priceUSD);
+  });
+
+  it('a rack counts in buildCost and survives simBuild', () => {
+    const b = simBuild(addPart(emptyBuild(), rack));
+    expect(b.rack).toBe(rack.id);
+    expect(buildCost(idx, b)).toBe(rack.priceUSD);
   });
 });

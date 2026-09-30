@@ -44,3 +44,39 @@ Real names allowed in `dist/`. Each entry needs the user's decision recorded abo
 - **Near misses and bonuses:** linear partial credit from 100 at the target down to 0 at a floor (e.g. 18 of 20 tok/s = 50 with the floor at 80% of target). Small capped bonuses for coming in under budget and under the power limit (up to +10% payout combined).
 - **Job types at launch:** inference, Minecraft server, and mixed (both on one box). Fairness: the generator builds a reference build from the catalog for every roll and only keeps the job if that build passes every target within budget. No cloud/VM jobs yet (no model built for it).
 - **After delivery:** the stress test is final. Once it passes and the player is paid, the job is done for good.
+
+## Game-design values picked by Claude, pending sign-off
+
+The user chose "keep, log for sign-off" (2026-09-30, stage 4-5). These are game-design picks, not measurements. Only the 80% performance floor and the +10% combined bonus cap come from an option the user picked; the Minecraft 20 TPS target is sourced (minecraft.wiki: Tick). Everything else below needs the user's sign-off.
+
+**Scoring** (`SCORING`, `src/jobs/score.js`)
+- `perfFloor` 0.8: performance scores 0 at 80% of the target (user-picked option).
+- `overFloor` 1.2: budget and power score 0 at 120% of the limit.
+- `noiseFloorDB` 6: noise scores 0 at 6 dB over the limit.
+- `tempFloorC` 5: room temperature scores 0 at 5 C over the limit.
+- `budgetBonusMax` 0.06 and `powerBonusMax` 0.04 (+10% combined, user-picked cap; the 6/4 split is Claude's).
+- `bonusFullAt` 0.3: the bonus is full at 30% under the limit.
+- `hardFailCap` 25: a hard fail caps the score at 25, and the payout is 0.
+- Satisfaction bands: 90 delighted, 75 happy, 50 satisfied, 25 disappointed, below that angry; "rejected" on a hard fail.
+- Payout multiplier = score/100 x (1 + bonus). XP multiplier = score/100.
+
+**Job generation** (`GEN`, `src/jobs/generate.js`)
+- `perfTargetOfRef` [0.75, 0.95]: performance target = reference build result x this.
+- `powerLimitOfRef` [1.1, 1.35]: wall power limit = reference draw x this (rounded up to 50 W).
+- `noiseLimitOverRefDB` [2, 6]: noise limit = reference level + this (only for clients with noise weight > 0).
+- `tempLimitOverRefC` [1, 3]: room temperature limit = reference room temp + this.
+- `budgetOfRefCost` [1.1, 1.4]: budget = reference build cost x this.
+- `feeOfBudget` [0.12, 0.2]: payout = budget x this.
+- `baseXp`: homelab 100, server 300, datacenter 1000.
+- `maxTries` 12 rolls before the generator gives up.
+- Reference build pick: random among passing candidates sorted by cost, index = n x u^2 (weighted toward cheap).
+
+**Workloads per tier** (`WORKLOAD`, `src/jobs/generate.js`)
+- Homelab: model weights <= 40 GB (smallest quant), contexts 4k/8k/16k/32k, concurrency 1/1/2, 4-30 players.
+- Server: weights <= 300 GB, contexts 8k/32k/64k, concurrency 1/4/8, 20-120 players.
+- Datacenter: native (FP8/MXFP4/BF16) weights >= 60 GB, contexts 8k/32k/128k, concurrency 16/32/64/128, no game servers.
+
+**Clients** (`CLIENTS`, `src/jobs/clients.js`). Priority weights in percent: performance / budget / noise / power / temperature.
+- Homelab: Hobbyist tinkerer 35/35/15/5/10 (inference, mixed); Remote worker 25/20/35/10/10 (inference); Student on a budget 25/50/10/10/5 (inference, game server); Gaming group host 40/30/10/10/10 (game server, mixed).
+- Server: Small law office 25/25/20/15/15 (inference); Game server host 45/25/5/15/10 (game server, mixed); AI startup 50/20/5/15/10 (inference, mixed).
+- Datacenter (noise not judged): Research lab 50/25/0/15/10; Inference provider 40/20/0/30/10; University cluster 35/40/0/15/10 (all inference).

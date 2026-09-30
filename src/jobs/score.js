@@ -16,6 +16,8 @@ import { measure } from './generate.js';
 import { buildCost } from './cost.js';
 
 // Game-design constants.
+// Values picked by Claude, pending the user's sign-off: see docs/decisions.md,
+// "Game-design values picked by Claude, pending sign-off".
 export const SCORING = {
   perfFloor: 0.8, // performance: 0 points at 80% of the target (18 of 20 tok/s = 50)
   overFloor: 1.2, // budget and power: 0 points at 120% of the limit

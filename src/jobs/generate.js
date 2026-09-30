@@ -19,6 +19,8 @@ import { referenceCandidates } from './templates.js';
 import { defaultSoftware } from './software.js';
 
 // Game-design constants for how much slack jobs get around the reference build.
+// Values picked by Claude, pending the user's sign-off: see docs/decisions.md,
+// "Game-design values picked by Claude, pending sign-off".
 export const GEN = {
   perfTargetOfRef: [0.75, 0.95], // performance target = reference result x this
   powerLimitOfRef: [1.1, 1.35], // wall power limit = reference draw x this
