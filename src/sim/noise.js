@@ -46,7 +46,7 @@ export function noiseAtListener(idx, build, room, thermal) {
   if (build.psu) add('PSU fan', a.psuFanDBA, false);
   for (const n of build.network ?? []) {
     const part = idx.parts.get(n.part);
-    if (part.fans > 0) add(`${part.displayName} fans`, a.switchFanDBA, false);
+    if (part.fans > 0) add(`${part.displayName} fans`, part.noiseDBA ?? a.switchFanDBA, false);
   }
   const total1m = sumDb(sources.map((s) => s.dba1m));
   const r = Math.max(room.listenerDistanceM, 0.1);

@@ -48,7 +48,7 @@ export const benchmarks = [
   ...lcppScore('a6000', 'gpu-atelier-a48', 144.87, 5662.39),
   ...lcppScore('pro6000', 'gpu-atelier-b96', 281.11, 16618.98),
   ...lcppScore('a100', 'gpu-bastion-h80', 200.90, 5285.96, 'scoreboard says "A100 80 GB HBM2e" without PCIe/SXM; mapped to the PCIe card'),
-  ...lcppScore('h100sxm', 'cal-h100-sxm', 280.74, 11263.29, '"H100 80 GB HBM3" = SXM5'),
+  ...lcppScore('h100sxm', 'gpu-bastion-x80-sxm', 280.74, 11263.29, '"H100 80 GB HBM3" = SXM5'),
 
   // B: multi-GPU layer split and bigger models (held out)
   xd('3090-8b', 'gpu-ember-g3-24', 1, L8, 'Q4_K_M', 111.74),
@@ -63,7 +63,7 @@ export const benchmarks = [
   xd('l40sx4-8b', 'gpu-bastion-p48', 4, L8, 'Q4_K_M', 105.72),
   xd('a100-8b', 'gpu-bastion-h80', 1, L8, 'Q4_K_M', 138.31),
   xd('a100x4-8b', 'gpu-bastion-h80', 4, L8, 'Q4_K_M', 117.30),
-  xd('a100sxm-8b', 'cal-a100-sxm', 1, L8, 'Q4_K_M', 133.38),
+  xd('a100sxm-8b', 'gpu-bastion-h80-sxm', 1, L8, 'Q4_K_M', 133.38),
   xd('3090-8bf16', 'gpu-ember-g3-24', 1, L8, 'BF16', 46.51),
   xd('4090-8bf16', 'gpu-ember-g4-24', 1, L8, 'BF16', 54.34),
   xd('a6000-8bf16', 'gpu-atelier-a48', 1, L8, 'BF16', 40.25),
@@ -79,12 +79,38 @@ export const benchmarks = [
   xd('l40sx4-70b', 'gpu-bastion-p48', 4, L70, 'Q4_K_M', 14.99),
   xd('a100-70b', 'gpu-bastion-h80', 1, L70, 'Q4_K_M', 22.11),
   xd('a100x4-70b', 'gpu-bastion-h80', 4, L70, 'Q4_K_M', 22.68),
-  xd('a100sxm-70b', 'cal-a100-sxm', 1, L70, 'Q4_K_M', 24.33),
+  xd('a100sxm-70b', 'gpu-bastion-h80-sxm', 1, L70, 'Q4_K_M', 24.33),
   xd('3090x6-70bf16', 'gpu-ember-g3-24', 6, L70, 'F16', 5.82),
   xd('4090x8-70bf16', 'gpu-ember-g4-24', 8, L70, 'F16', 6.45),
   xd('a6000x4-70bf16', 'gpu-atelier-a48', 4, L70, 'F16', 4.74),
   xd('l40sx4-70bf16', 'gpu-bastion-p48', 4, L70, 'F16', 5.03),
   xd('a100x4-70bf16', 'gpu-bastion-h80', 4, L70, 'F16', 7.38),
+
+  // I: datacenter rows from the same XD tables (llama.cpp, default layer split).
+  // H100 PCIe single-GPU 8B rows fit; everything else here is held out.
+  { ...xd('h100p-8b', 'cal-h100-pcie', 1, L8, 'Q4_K_M', 144.49, 'fit'), id: 'I-h100p-8b' },
+  { ...xd('h100p-8bf16', 'cal-h100-pcie', 1, L8, 'BF16', 67.79, 'fit'), id: 'I-h100p-8bf16' },
+  { ...xd('h100p-70b', 'cal-h100-pcie', 1, L70, 'Q4_K_M', 25.01), id: 'I-h100p-70b' },
+  { ...xd('h100px4-8b', 'cal-h100-pcie', 4, L8, 'Q4_K_M', 118.14), id: 'I-h100px4-8b' },
+  { ...xd('h100px4-70b', 'cal-h100-pcie', 4, L70, 'Q4_K_M', 26.20), id: 'I-h100px4-70b' },
+  { ...xd('h100px4-70bf16', 'cal-h100-pcie', 4, L70, 'F16', 9.63), id: 'I-h100px4-70bf16' },
+  { ...xd('a100sxm-8bf16', 'gpu-bastion-h80-sxm', 1, L8, 'BF16', 53.18), id: 'I-a100sxm-8bf16' },
+  { ...xd('a100sxmx4-8b', 'gpu-bastion-h80-sxm', 4, L8, 'Q4_K_M', 97.70), id: 'I-a100sxmx4-8b' },
+  { ...xd('a100sxmx4-70b', 'gpu-bastion-h80-sxm', 4, L70, 'Q4_K_M', 19.60), id: 'I-a100sxmx4-70b' },
+  { ...xd('a100sxmx4-70bf16', 'gpu-bastion-h80-sxm', 4, L70, 'F16', 6.92), id: 'I-a100sxmx4-70bf16' },
+  // Long-context decode (XD tg at 8192 tokens generated from a short prompt: mean depth ~4096).
+  ...[['h100p', 'cal-h100-pcie', 126.83], ['a100sxm', 'gpu-bastion-h80-sxm', 115.92]].map(([n, gpu, v]) => ({
+    id: `I-${n}-8b-tg8192`, role: 'check', source: B, engine: 'eng-kettle', gpus: [{ part: gpu, count: 1 }], split: 'none',
+    model: L8, quant: 'Q4_K_M', kvType: 'f16', flashAttention: false, concurrency: 1,
+    metric: 'decode', depth: est(4096, 'tokens', 'tg 8192 from a short prompt: mean KV depth over the run is about half of 8192.'),
+    value: meas(v, 'tok/s', B, 'tg 8192 column, 8B Q4_K_M'),
+  })),
+  { id: 'I-h100p-8bf16-pp', role: 'check', source: B, engine: 'eng-kettle', gpus: [{ part: 'cal-h100-pcie', count: 1 }], split: 'none',
+    model: L8, quant: 'BF16', kvType: 'f16', flashAttention: false, concurrency: 1,
+    metric: 'prefill', promptTokens: 1024, value: meas(10342.63, 'tok/s', B, 'average 1024-token prompt eval, F16 GGUF') },
+  { id: 'I-h100p-8b-pp', role: 'check', source: B, engine: 'eng-kettle', gpus: [{ part: 'cal-h100-pcie', count: 1 }], split: 'none',
+    model: L8, quant: 'Q4_K_M', kvType: 'f16', flashAttention: false, concurrency: 1,
+    metric: 'prefill', promptTokens: 1024, value: meas(7760.16, 'tok/s', B, 'average 1024-token prompt eval, Q4_K_M') },
 
   // B (prompt processing): average 1024-token prompt eval speed. F16 rows fit the
   // fp16 prefill efficiency; Q4_K_M rows are held out. The L40S F16 row is held
@@ -135,7 +161,7 @@ export const benchmarks = [
 
   // E: vLLM tensor/pipeline parallel on A100 SXM (held out; the only TP data point found)
   ...[['tp1', 1, 'none', 22.16], ['tp2', 2, 'tp', 20.53], ['pp2', 2, 'pp', 21.08], ['tp4', 4, 'tp', 18.55]].map(([n, count, split, v]) => ({
-    id: `E-${n}`, role: 'check', source: E, engine: 'eng-sluice', gpus: [{ part: 'cal-a100-sxm', count }], split,
+    id: `E-${n}`, role: 'check', source: E, engine: 'eng-sluice', gpus: [{ part: 'gpu-bastion-h80-sxm', count }], split,
     model: 'mdl-quill-25-32b', quant: 'BF16', kvType: 'auto', flashAttention: true, concurrency: 1,
     metric: 'decode', depth: ARXIV_DEPTH, value: meas(v, 'tok/s', E, 'chat workload 64 in / 128 out, vLLM v0.9.2; "NVLink pairs, PCIe across pairs"'),
   })),

@@ -1,7 +1,7 @@
 // Power draw: per-part DC draw at the current load, then wall power through the
 // PSU efficiency curve.
 
-import { interp, clamp } from './util.js';
+import { interp, clamp, cpuCount, effectivePsu } from './util.js';
 
 // GPU draw while running inference at batch B (fraction of board power), or
 // idle if the GPU is not used. Fractions come from constants.power.
@@ -84,7 +84,8 @@ export function buildPower(idx, build, activity) {
   });
   if (build.cpu) {
     const cpu = idx.parts.get(build.cpu);
-    add(`CPU ${cpu.displayName}`, cpuDrawW(idx, cpu, activity.cpuLoad ?? 0), 'cpu');
+    const n = cpuCount(build);
+    add(`CPU ${n > 1 ? n + 'x ' : ''}${cpu.displayName}`, n * cpuDrawW(idx, cpu, activity.cpuLoad ?? 0), 'cpu');
   }
   for (const r of build.ram ?? []) {
     const part = idx.parts.get(r.part);
@@ -106,7 +107,7 @@ export function buildPower(idx, build, activity) {
   }
   add('Motherboard and chipset', idx.constants.power.motherboardW, 'board');
   const dcW = byPart.reduce((a, p) => a + p.watts, 0);
-  const psu = build.psu ? idx.parts.get(build.psu) : null;
+  const psu = effectivePsu(idx, build);
   const wall = psu ? wallPower(psu, dcW) : { wallW: dcW, efficiency: 1, loadPct: 0 };
   return { byPart, dcW, ...wall, psu };
 }

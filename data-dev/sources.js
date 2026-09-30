@@ -36,6 +36,21 @@ export const sources = [
   { id: 'wiki-quadro', kind: 'reference', title: 'Wikipedia: Nvidia Quadro (RTX A-series table)', url: 'https://en.wikipedia.org/wiki/Nvidia_Quadro', accessed: A },
   { id: 'wiki-nv-dc', kind: 'reference', title: 'Wikipedia: Nvidia Tesla / data center GPU table (clocks)', url: 'https://en.wikipedia.org/wiki/Nvidia_Tesla', accessed: A },
 
+  { id: 'nv-h200-page', kind: 'spec-sheet', title: 'NVIDIA H200 product page (SXM and NVL)', url: 'https://www.nvidia.com/en-us/data-center/h200/', accessed: A },
+  { id: 'nv-hgx-page', kind: 'spec-sheet', title: 'NVIDIA HGX platform page (HGX B300 / B200 spec table)', url: 'https://www.nvidia.com/en-us/data-center/hgx/', accessed: A, note: 'FP16/BF16 36 PFLOPS per 8 GPUs, footnote "Dense is 1/2 sparse spec shown"; NVLink 1.8 TB/s per GPU' },
+  { id: 'nv-dgxa100-docs', kind: 'spec-sheet', title: 'NVIDIA DGX A100 user guide: introduction (hardware specs)', url: 'https://docs.nvidia.com/dgx/dgxa100-user-guide/introduction-to-dgxa100.html', accessed: A },
+  { id: 'nv-dgxh100-docs', kind: 'spec-sheet', title: 'NVIDIA DGX H100/H200 user guide: introduction (hardware specs)', url: 'https://docs.nvidia.com/dgx/dgxh100-user-guide/introduction-to-dgxh100.html', accessed: A },
+  { id: 'nv-dgxb200-docs', kind: 'spec-sheet', title: 'NVIDIA DGX B200 user guide: introduction (hardware specs)', url: 'https://docs.nvidia.com/dgx/dgxb200-user-guide/introduction-to-dgxb200.html', accessed: A },
+  { id: 'nv-dgxb300-docs', kind: 'spec-sheet', title: 'NVIDIA DGX B300 user guide: introduction (hardware specs)', url: 'https://docs.nvidia.com/dgx/dgxb300-user-guide/introduction-to-dgxb300.html', accessed: A },
+  { id: 'wiki-amd-instinct', kind: 'reference', title: 'Wikipedia: AMD Instinct (CDNA spec tables)', url: 'https://en.wikipedia.org/wiki/AMD_Instinct', accessed: A },
+  { id: 'smc-as8125', kind: 'spec-sheet', title: 'Supermicro AS-8125GS-TNMR2 (8x MI300X) product page', url: 'https://www.supermicro.com/en/products/system/gpu/8u/as-8125gs-tnmr2', accessed: A },
+  { id: 'smc-a126', kind: 'spec-sheet', title: 'Supermicro AS-A126GS-TNMR (8x MI355X) product page', url: 'https://www.supermicro.com/en/products/system/gpu/10u/as-a126gs-tnmr', accessed: A },
+  { id: 'price-il-dc', kind: 'price', title: 'IntuitionLabs: Data center GPU prices (published 2026-09-05)', url: 'https://intuitionlabs.ai/articles/data-center-gpu-prices', accessed: A },
+  { id: 'nv-sn4000-docs', kind: 'spec-sheet', title: 'NVIDIA Spectrum-3 SN4000 hardware user manual: specifications (SN4700, SN4600C)', url: 'https://networking-docs.nvidia.com/sn4000hw/specifications', accessed: A },
+  { id: 'dell-qm9700', kind: 'spec-sheet', title: 'NVIDIA Quantum-2 QM9700 series datasheet (Dell, German)', url: 'https://www.delltechnologies.com/asset/de-at/products/networking/technical-support/nvidia-quantum-2-qm9700-series-datasheet.pdf', accessed: A },
+  { id: 'dell-sn5600', kind: 'spec-sheet', title: 'NVIDIA Spectrum SN5600 series datasheet (Dell, German)', url: 'https://www.delltechnologies.com/asset/de-at/products/networking/technical-support/nvidia-spectrum-sn5600-datasheet.pdf', accessed: A },
+  { id: 'scan-ap8886', kind: 'price', title: 'Scan UK: APC NetShelter AP8886 metered rack PDU listing (specs and price)', url: 'https://www.scan.co.uk/products/42-socket-apc-netshelter-ap8886-metered-rack-pdu-0u-vertical-3-phase-22kw-32a-173kw-24a-42', accessed: A },
+
   // GPU prices
   { id: 'price-gp-3060', kind: 'price', title: 'gpupoet: RTX 3060 price, September 2026 (lowest average price)', url: 'https://gpupoet.com/gpu/learn/price/september-2026/nvidia-geforce-rtx-3060', accessed: A },
   { id: 'price-gp-3090', kind: 'price', title: 'gpupoet: RTX 3090 price, September 2026 (lowest average price)', url: 'https://gpupoet.com/gpu/learn/price/september-2026/nvidia-geforce-rtx-3090', accessed: A },

@@ -8,6 +8,8 @@ export { psus } from './parts/psu.js';
 export { fans, coolers } from './parts/cooling.js';
 export { networks } from './parts/network.js';
 export { chassis } from './parts/chassis.js';
+export { nodes } from './parts/node.js';
+export { pdus } from './parts/pdu.js';
 export { models } from './models.js';
 export { engines, kvCacheTypes, formatComputePath } from './engines.js';
 export { constants } from './constants.js';

@@ -1,4 +1,5 @@
 import { pub, meas, est } from '../lib.js';
+import { dcGpus } from './gpu-dc.js';
 
 // GPUs. displayName values are PROPOSED fake brand names, pending user approval.
 // Tensor TFLOPS/TOPS are dense (no sparsity). fp16TensorTflops is FP16 multiply
@@ -10,7 +11,7 @@ import { pub, meas, est } from '../lib.js';
 const FE_GEFORCE_P2P = (card) =>
   est(false, 'bool', `GeForce cards: peer-to-peer over PCIe treated as unavailable. A search summary of nccl-tests issue #117 said "RTX 4090 does not support P2P by default"; applied to ${card} as well. Not confirmed on an opened page.`);
 
-export const gpus = [
+const pcieGpus = [
   {
     id: 'gpu-ember-g3-12', category: 'gpu', tier: 'consumer',
     displayName: 'Halcyon Ember G3-12', realRef: 'NVIDIA GeForce RTX 3060 12GB',
@@ -32,6 +33,7 @@ export const gpus = [
     p2pOverPcie: FE_GEFORCE_P2P('RTX 3060'),
     cooling: est('open-air', '', 'The 3060 12GB shipped as partner (AIB) cards with axial open-air coolers; no Founders Edition.'),
     slots: est(2, 'slots', 'Typical partner card width; no reference design.'),
+    formFactor: est('pcie', '', 'Add-in PCIe card (edge connector) per its product page and slot count.'),
     priceUSD: pub(283, 'USD', 'price-gp-3060', 'Sept 2026 lowest average price'),
   },
   {
@@ -55,6 +57,7 @@ export const gpus = [
     p2pOverPcie: FE_GEFORCE_P2P('RTX 3090'),
     cooling: est('open-air', '', 'Founders Edition uses two axial fans; heat goes into the case.'),
     slots: pub(3, 'slots', 'nv-3090-page'),
+    formFactor: est('pcie', '', 'Add-in PCIe card (edge connector) per its product page and slot count.'),
     priceUSD: pub(1355, 'USD', 'price-gp-3090', 'Sept 2026 lowest average price. PCSP used guide says $500-650: sources disagree.'),
   },
   {
@@ -78,6 +81,7 @@ export const gpus = [
     p2pOverPcie: FE_GEFORCE_P2P('RTX 4090'),
     cooling: est('open-air', '', 'Founders Edition axial flow-through design; heat goes into the case.'),
     slots: pub(3, 'slots', 'nv-4090-page'),
+    formFactor: est('pcie', '', 'Add-in PCIe card (edge connector) per its product page and slot count.'),
     priceUSD: pub(2977, 'USD', 'price-gp-4090', 'Sept 2026 lowest average price'),
   },
   {
@@ -101,6 +105,7 @@ export const gpus = [
     p2pOverPcie: FE_GEFORCE_P2P('RTX 5090'),
     cooling: est('flow-through', '', 'Founders Edition double flow-through with vapor chamber; heat goes into the case.'),
     slots: pub(2, 'slots', 'nv-5090-page'),
+    formFactor: est('pcie', '', 'Add-in PCIe card (edge connector) per its product page and slot count.'),
     priceUSD: pub(5409, 'USD', 'price-gp-5090', 'Sept 2026 lowest average price; MSRP was $1,999'),
   },
   {
@@ -124,6 +129,7 @@ export const gpus = [
     p2pOverPcie: est(true, 'bool', 'Professional cards are assumed to allow PCIe peer-to-peer (not confirmed on an opened page).'),
     cooling: pub('blower', '', 'nv-a6000-page', 'Thermal: active; blower-style dual-slot card'),
     slots: pub(2, 'slots', 'nv-a6000-page'),
+    formFactor: est('pcie', '', 'Add-in PCIe card (edge connector) per its product page and slot count.'),
     priceUSD: est(5000, 'USD', 'A new PNY listing at $4,999 was only seen in a search snippet (page returned 403); used listings in snippets were $4,310-$8,900.'),
   },
   {
@@ -147,6 +153,7 @@ export const gpus = [
     p2pOverPcie: est(true, 'bool', 'Professional cards are assumed to allow PCIe peer-to-peer (not confirmed on an opened page).'),
     cooling: pub('flow-through', '', 'nv-pro6000-page', 'Double Flow Through'),
     slots: pub(2, 'slots', 'nv-pro6000-page'),
+    formFactor: est('pcie', '', 'Add-in PCIe card (edge connector) per its product page and slot count.'),
     priceUSD: pub(16000, 'USD', 'price-thunder-pro6000', 'MSRP was $8,565'),
   },
   {
@@ -170,6 +177,7 @@ export const gpus = [
     p2pOverPcie: est(true, 'bool', 'Datacenter cards are assumed to allow PCIe peer-to-peer (not confirmed on an opened page).'),
     cooling: pub('passive', '', 'nv-l40s-page'),
     slots: pub(2, 'slots', 'nv-l40s-page'),
+    formFactor: est('pcie', '', 'Add-in PCIe card (edge connector) per its product page and slot count.'),
     priceUSD: pub(8000, 'USD', 'price-pcsp-2026', 'Midpoint of the $7,000-9,000 used range'),
   },
   {
@@ -193,6 +201,7 @@ export const gpus = [
     p2pOverPcie: est(true, 'bool', 'Datacenter cards are assumed to allow PCIe peer-to-peer.'),
     cooling: est('passive', '', 'NVIDIA lists "PCIe dual-slot air-cooled": a heatsink that relies on server chassis airflow.', 'nv-a100-page'),
     slots: pub(2, 'slots', 'nv-a100-page'),
+    formFactor: est('pcie', '', 'Add-in PCIe card (edge connector) per its product page and slot count.'),
     priceUSD: pub(10000, 'USD', 'price-jarvis-a100', 'Midpoint of the $8,000-12,000 new range (March 2026)'),
   },
   {
@@ -216,37 +225,16 @@ export const gpus = [
     p2pOverPcie: est(true, 'bool', 'Datacenter cards are assumed to allow PCIe peer-to-peer.'),
     cooling: est('passive', '', 'NVIDIA lists "PCIe dual-slot air-cooled": relies on server chassis airflow.', 'nv-h100-page'),
     slots: pub(2, 'slots', 'nv-h100-page'),
+    formFactor: est('pcie', '', 'Add-in PCIe card (edge connector) per its product page and slot count.'),
     priceUSD: est(30000, 'USD', 'No NVL-specific price found. compute.exchange gives $25k-40k new for the 80GB class with PCIe at the low end; CloudZero gives ~$31k for a new 80GB card.', 'price-cx-h100'),
   },
 ];
 
+export const gpus = [...pcieGpus, ...dcGpus];
+
 // Hardware that appears in calibration benchmarks but is not sold in the game.
 // Dev-only: used by scripts/calibrate.js, never shipped.
 export const calibrationGpus = [
-  {
-    id: 'cal-a100-sxm', category: 'gpu', tier: 'datacenter', displayName: 'calibration-only A100 SXM', realRef: 'NVIDIA A100 80GB SXM',
-    vramGB: pub(80, 'GB', 'nv-a100-page'), memBandwidthGBs: pub(2039, 'GB/s', 'nv-a100-page'), memType: pub('HBM2e', '', 'nv-a100-page'),
-    fp16TensorTflops: pub(312, 'TFLOPS', 'nv-a100-page'), int8TensorTops: pub(624, 'TOPS', 'nv-a100-page'),
-    fp16AccTensorTflops: pub(312, 'TFLOPS', 'nv-a100-page'), fp32Tflops: pub(19.5, 'TFLOPS', 'nv-a100-page'),
-    boostClockMHz: pub(1410, 'MHz', 'wiki-nv-dc', 'PCIe card clock; SXM assumed the same'),
-    boardPowerW: pub(400, 'W', 'nv-a100-page'), idlePowerW: est(50, 'W', 'Calibration-only part; idle power not needed for calibration and not researched.'), maxTempC: est(85, 'C', 'Calibration-only part; throttle temperature not needed for calibration.'),
-    pcieGen: pub(4, '', 'nv-a100-page'), pcieLanes: est(16, 'lanes', 'SXM module host link treated as x16 (calibration-only part).'),
-    linkType: pub('nvlink', '', 'nv-a100-page'), linkBandwidthGBs: pub(600, 'GB/s', 'nv-a100-page'),
-    p2pOverPcie: est(true, 'bool', 'Datacenter.'), cooling: est('passive', '', 'SXM module.'), slots: est(0, 'slots', 'SXM module.'),
-    priceUSD: est(0, 'USD', 'Not sold in game.'),
-  },
-  {
-    id: 'cal-h100-sxm', category: 'gpu', tier: 'datacenter', displayName: 'calibration-only H100 SXM', realRef: 'NVIDIA H100 SXM5 80GB',
-    vramGB: pub(80, 'GB', 'nv-h100-page'), memBandwidthGBs: pub(3350, 'GB/s', 'nv-h100-page'), memType: pub('HBM3', '', 'nv-h100-page'),
-    fp16TensorTflops: est(989.5, 'TFLOPS', '1,979 with sparsity / 2.', 'nv-h100-page'), int8TensorTops: est(1979, 'TOPS', '3,958 with sparsity / 2.', 'nv-h100-page'),
-    fp16AccTensorTflops: est(989.5, 'TFLOPS', '1,979 with sparsity / 2; one FP16 tensor rate.', 'nv-h100-page'), fp32Tflops: pub(67, 'TFLOPS', 'nv-h100-page'),
-    boostClockMHz: pub(1980, 'MHz', 'wiki-nv-dc'),
-    boardPowerW: pub(700, 'W', 'nv-h100-page'), idlePowerW: est(70, 'W', 'Calibration-only part; idle power not needed for calibration and not researched.'), maxTempC: est(85, 'C', 'Calibration-only part; throttle temperature not needed for calibration.'),
-    pcieGen: pub(5, '', 'nv-h100-page'), pcieLanes: est(16, 'lanes', 'SXM module host link treated as x16 (calibration-only part).'),
-    linkType: pub('nvlink', '', 'nv-h100-page'), linkBandwidthGBs: pub(900, 'GB/s', 'nv-h100-page'),
-    p2pOverPcie: est(true, 'bool', 'Datacenter.'), cooling: est('passive', '', 'SXM module.'), slots: est(0, 'slots', 'SXM module.'),
-    priceUSD: est(0, 'USD', 'Not sold in game.'),
-  },
   {
     id: 'cal-a5000', category: 'gpu', tier: 'workstation', displayName: 'calibration-only A5000', realRef: 'NVIDIA RTX A5000',
     vramGB: pub(24, 'GB', 'wiki-quadro'), memBandwidthGBs: pub(768, 'GB/s', 'wiki-quadro'), memType: pub('GDDR6', '', 'wiki-quadro'),
@@ -258,7 +246,19 @@ export const calibrationGpus = [
     boardPowerW: pub(230, 'W', 'wiki-quadro'), idlePowerW: est(20, 'W', 'Calibration-only part; idle power not needed for calibration and not researched.'), maxTempC: est(93, 'C', 'Calibration-only part; throttle temperature not needed for calibration.'),
     pcieGen: est(4, '', 'Ampere professional card; PCIe Gen 4 x16 per the product page summary.'), pcieLanes: est(16, 'lanes', 'PCIe Gen 4 x16 per the product page summary.'),
     linkType: pub('nvlink', '', 'wiki-quadro', 'NVLink 3.0, 48 GB with bridge'), linkBandwidthGBs: est(112.5, 'GB/s', 'Same GA102 NVLink as the RTX 3090/A6000 (112.5 GB/s total, GA102 whitepaper); product page summary says up to 112 GB/s.', 'nv-ga102-wp'),
-    p2pOverPcie: est(true, 'bool', 'Professional card; peer-to-peer over PCIe assumed allowed.'), cooling: est('blower', '', 'Dual-slot active blower workstation card.'), slots: est(2, 'slots', 'Dual slot per product page summary.'),
+    p2pOverPcie: est(true, 'bool', 'Professional card; peer-to-peer over PCIe assumed allowed.'), cooling: est('blower', '', 'Dual-slot active blower workstation card.'), slots: est(2, 'slots', 'Dual slot per product page summary.'), formFactor: est('pcie', '', 'Add-in PCIe card.'),
+    priceUSD: est(0, 'USD', 'Not sold in game.'),
+  },
+  {
+    id: 'cal-h100-pcie', category: 'gpu', tier: 'datacenter', displayName: 'calibration-only H100 PCIe', realRef: 'NVIDIA H100 PCIe 80GB',
+    vramGB: pub(80, 'GB', 'wiki-nv-dc'), memBandwidthGBs: pub(2039, 'GB/s', 'wiki-nv-dc'), memType: pub('HBM2e', '', 'wiki-nv-dc'),
+    fp16TensorTflops: pub(756.4, 'TFLOPS', 'wiki-nv-dc', 'half-precision tensor column (dense)'), fp16AccTensorTflops: pub(756.4, 'TFLOPS', 'wiki-nv-dc', 'Hopper has one FP16 tensor rate'),
+    fp32Tflops: pub(51.2, 'TFLOPS', 'wiki-nv-dc'), int8TensorTops: est(1512.8, 'TOPS', 'Twice the FP16 dense tensor rate, as on the H100 SXM/NVL (3,958/1,979 sparse).'),
+    boostClockMHz: pub(1755, 'MHz', 'wiki-nv-dc'),
+    boardPowerW: pub(350, 'W', 'wiki-nv-dc'), idlePowerW: est(40, 'W', 'Calibration-only part; idle power not needed for calibration and not researched.'), maxTempC: est(85, 'C', 'Calibration-only part; throttle temperature not needed for calibration.'),
+    pcieGen: est(5, '', 'Hopper PCIe card; Gen 5 like the H100 NVL.'), pcieLanes: est(16, 'lanes', 'Full-length x16 card.'),
+    linkType: est('nvlink', '', 'H100 PCIe supports a 2-way NVLink bridge like the NVL.'), linkBandwidthGBs: est(600, 'GB/s', 'Same NVLink bridge bandwidth as the H100 NVL (600 GB/s).', 'nv-h100-page'),
+    p2pOverPcie: est(true, 'bool', 'Datacenter.'), cooling: est('passive', '', 'Passive dual-slot card.'), slots: pub(2, 'slots', 'wiki-nv-dc'), formFactor: est('pcie', '', 'PCIe card per the table.'),
     priceUSD: est(0, 'USD', 'Not sold in game.'),
   },
 ];

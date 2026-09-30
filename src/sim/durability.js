@@ -1,3 +1,4 @@
+import { effectivePsu } from './util.js';
 // Failure rates per part, adjusted for temperature, and the chance of failing
 // within a time step. The stress test and (later) the datacenter roll against it.
 //
@@ -50,7 +51,7 @@ export function failureRates(idx, build, state) {
     out.push({ key: `storage:${i}`, label: `${part.displayName} x${n}`, afr: n * base * 2 ** (over / r.driveOverTempDoublingC) });
   });
   if (build.psu) {
-    const psu = idx.parts.get(build.psu);
+    const psu = effectivePsu(idx, build);
     const internalC = state.roomC + r.psuInternalRiseC + state.psuLoadPct * r.psuRisePerLoadPct;
     out.push({ key: 'psu', label: `PSU ${psu.displayName}`, afr: (r.psuAfrPct / 100) * arrhenius(idx, internalC, r.psuReferenceTempC) });
   }

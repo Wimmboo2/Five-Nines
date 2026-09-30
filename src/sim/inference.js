@@ -17,6 +17,7 @@
 // tensor throughput), with TP splitting the FLOPs and adding all-reduces.
 // Sequential stages pipeline micro-batches (llama.cpp layer split does this).
 
+import { cpuCount, nodeOf } from './util.js';
 import { GB } from './util.js';
 import {
   layerReadBytes, kvBytesForLayers, layerActiveParams, attentionFlopsPerTokenLayer, uniqueExpertsTouched,
@@ -31,10 +32,25 @@ export function pcieBytesPerSec(idx, part, lanes = part.pcieLanes) {
   return (x16 * (Math.min(lanes, part.pcieLanes) / 16)) * GB;
 }
 
+// Share of peak memory bandwidth the engine reaches on this card. HBM cards get
+// their own fitted factor: one efficiency cannot fit GDDR and HBM cards at once
+// (llama.cpp reaches a smaller share of HBM peak, see docs/calibration.md).
+export function memBwEff(perf, part) {
+  return perf.bwEfficiency * (String(part.memType).startsWith('HBM') ? (perf.hbmBwFactor ?? 1) : 1);
+}
+
 // How the GPUs of a TP group talk to each other.
 export function groupLink(idx, build, devices) {
   const parts = devices.map((d) => idx.parts.get(build.gpus[d].part));
   const lat = idx.constants.interconnect.allreduceLatencyUs;
+  const node = nodeOf(idx, build);
+  if (node && parts.every((p) => p.formFactor === node.gpuSocket)) {
+    // Node fabric: every module reaches every other one over NVLink (through
+    // switches) or a full Infinity-Fabric-style mesh. Per-GPU link figures
+    // are totals for both directions.
+    const bw = Math.min(...parts.map((p) => p.linkBandwidthGBs)) / 2;
+    return { type: node.fabric === 'mesh' ? 'mesh' : 'nvswitch', latencyS: lat.nvlink * 1e-6, bytesPerSec: bw * GB };
+  }
   if (devices.length === 2 && build.nvlinkBridges && parts.every((p) => p.linkType === 'nvlink')) {
     // Bridges connect pairs. Published link figures are totals for both directions.
     const bw = Math.min(...parts.map((p) => p.linkBandwidthGBs)) / 2;
@@ -57,7 +73,7 @@ export function allreduceSeconds(msgBytes, n, link) {
 function cpuRamBytesPerSec(idx, build) {
   const cpu = idx.parts.get(build.cpu);
   const ram = systemRam(idx, build);
-  const channelsUsed = Math.min(cpu.memChannels, Math.max(1, ram.modules));
+  const channelsUsed = Math.min(cpu.memChannels * cpuCount(build), Math.max(1, ram.modules));
   const mts = Math.min(ram.speedMTs, effectiveMaxMTs(cpu, ram));
   return channelsUsed * mts * 1e6 * idx.constants.inference.dramBytesPerTransfer;
 }
@@ -125,7 +141,7 @@ export function decodeStep(c, B, depth) {
         minClock = Math.min(minClock, part.boostClockMHz);
         const kv = s.kvOnMain ? (j === 0 ? kvRead : 0) : kvRead * kvShare;
         const bytes = weightRead / s.tp + kv;
-        const tMem = bytes / (perf.bwEfficiency * part.memBandwidthGBs * GB);
+        const tMem = bytes / (memBwEff(perf, part) * part.memBandwidthGBs * GB);
         const peak = peakFlops(part, path);
         const tComp = (matFlops + attnFlops) / s.tp / (matmulEfficiency(perf, path, model) * peak);
         const dev = c.mem.devices[d];
@@ -213,7 +229,7 @@ export function prefillSeconds(c, promptTokens) {
         const part = idx.parts.get(build.gpus[d].part);
         minClock = Math.min(minClock, part.boostClockMHz);
         const tComp = flops / s.tp / (eff * peakFlops(part, path));
-        const tW = (s.weightBytes / s.tp) / (perf.bwEfficiency * part.memBandwidthGBs * GB);
+        const tW = (s.weightBytes / s.tp) / (memBwEff(perf, part) * part.memBandwidthGBs * GB);
         slowest = Math.max(slowest, Math.max(tComp, tW) / (c.perfScale[d] ?? 1));
       }
       let comm = 0;
@@ -226,7 +242,7 @@ export function prefillSeconds(c, promptTokens) {
     }
     // CPU work: compute-bound on CPU cores (estimate constant).
     const cpu = idx.parts.get(build.cpu);
-    const cpuFlops = cpu.cores * cpu.boostClockGHz * 1e9 * idx.constants.inference.cpuFlopsPerCoreCycle;
+    const cpuFlops = cpuCount(build) * cpu.cores * cpu.boostClockGHz * 1e9 * idx.constants.inference.cpuFlopsPerCoreCycle;
     const perLayer = s.kind === 'cpu-experts'
       ? 2 * model.moe.expertsPerToken * model.moe.expertParamsPerExpertLayer
       : 2 * layerActiveParams(model) + attnPerTokLayer;

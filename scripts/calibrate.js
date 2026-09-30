@@ -61,7 +61,7 @@ const pct = (e) => `${((Math.exp(e) - 1) * 100).toFixed(1)}%`;
 function fit() {
   const out = {};
   for (const eng of ['eng-kettle', 'eng-sluice']) {
-    const base = { ...idx.engines.get(eng).perf, moePrefillFactor: 1, seqLayerOverheadUs: 0 };
+    const base = { ...idx.engines.get(eng).perf, moePrefillFactor: 1, seqLayerOverheadUs: 0, hbmBwFactor: 1 };
     const r = {};
     const isMoe = (b) => !!idx.models.get(b.model).moe;
     const path = (b) => idx.formatComputePath[eng][b.quant];
@@ -77,7 +77,8 @@ function fit() {
       base.prefillEfficiencyFp16 = g.v; r.prefillEfficiencyFp16 = { v: g.v, e: g.e, cases: ppFp16 };
     }
     // 2. single-stream decode, dense models: bandwidth efficiency + per-layer overhead
-    const tg = pick(eng, (b) => b.metric === 'decode' && b.concurrency === 1 && !isMoe(b));
+    const hbm = (b) => b.gpus.every((g) => String(idx.parts.get(g.part).memType).startsWith('HBM'));
+    const tg = pick(eng, (b) => b.metric === 'decode' && b.concurrency === 1 && !isMoe(b) && !hbm(b));
     if (tg.length) {
       let g = grid2(tg, 'bwEfficiency', [0.4, 1.0, 30], 'layerOverheadCycles', [0, 400000, 40], base);
       g = grid2(tg, 'bwEfficiency', [Math.max(0.3, g.v1 - 0.03), Math.min(1, g.v1 + 0.03), 30],
@@ -85,6 +86,12 @@ function fit() {
       Object.assign(base, { bwEfficiency: g.v1, layerOverheadCycles: g.v2 });
       r.bwEfficiency = { v: g.v1, e: g.e, cases: tg };
       r.layerOverheadCycles = { v: g.v2, e: g.e, cases: tg };
+    }
+    // 2b. the same decode on HBM cards: one extra bandwidth factor
+    const tgH = pick(eng, (b) => b.metric === 'decode' && b.concurrency === 1 && !isMoe(b) && hbm(b));
+    if (tgH.length) {
+      const g = grid1(tgH, 'hbmBwFactor', 0.3, 1.0, 140, base);
+      base.hbmBwFactor = g.v; r.hbmBwFactor = { v: g.v, e: g.e, cases: tgH };
     }
     // 3. MoE: extra per-layer decode overhead, and prefill slowdown
     const moeTg = pick(eng, (b) => b.metric === 'decode' && b.concurrency === 1 && isMoe(b));
@@ -115,7 +122,7 @@ function fit() {
 }
 
 function writeFitted(fitRes) {
-  const units = { bwEfficiency: 'fraction', layerOverheadCycles: 'cycles', prefillEfficiencyQuant: 'x fp32Tflops', prefillEfficiencyFp16: 'fraction', moeLayerOverheadCycles: 'cycles', moePrefillFactor: 'fraction', seqLayerOverheadUs: 'us' };
+  const units = { bwEfficiency: 'fraction', layerOverheadCycles: 'cycles', prefillEfficiencyQuant: 'x fp32Tflops', prefillEfficiencyFp16: 'fraction', moeLayerOverheadCycles: 'cycles', moePrefillFactor: 'fraction', seqLayerOverheadUs: 'us', hbmBwFactor: 'fraction' };
   const round = (k, v) => (k.endsWith('Cycles') ? Math.round(v) : Math.round(v * 10000) / 10000);
   const line = (k, r, fallback) => {
     if (r) return `est(${round(k, r.v)}, '${units[k]}', ${JSON.stringify(`Fitted by scripts/calibrate.js --fit to ${r.cases.length} published cases (${ids(r.cases)}); in-sample RMS error ${pct(r.e)} (log-space).`)})`;
@@ -127,6 +134,7 @@ function writeFitted(fitRes) {
   const kettle = Object.keys(units).map((key) => `    ${key}: ${line(key, k[key], `est(0, '${units[key]}', 'No fit data.')`)},`).join('\n');
   const sluice = Object.keys(units).map((key) => {
     if (v[key]) return `    ${key}: ${line(key, v[key])},`;
+    if (key === 'hbmBwFactor') return `    ${key}: est(1, 'fraction', 'No single-stream vLLM decode data on HBM cards in the fit set; not applied (1). The held-out A100 SXM vLLM cases (set E) check this.'),`;
     return `    ${key}: ${copy(k, key, `No vLLM data for this constant; set equal to the fitted llama.cpp value.`)},`;
   }).join('\n');
   const loomSrc = { ...k, ...v };

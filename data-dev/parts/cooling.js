@@ -39,6 +39,20 @@ export const fans = [
     ...ARCTIC_LIFE,
     priceUSD: est(12, 'USD', 'Price not shown on the product page; assumed.'),
   },
+  {
+    id: 'fan-gale-80s', category: 'fan', tier: 'datacenter',
+    displayName: 'Gale S80 Server Fan', realRef: 'Sanyo Denki San Ace 80 9HV0812P1G001',
+    sizeMm: est(80, 'mm', '80 x 80 x 38 mm per the listing title (DigiKey/Farnell search results; product pages returned 404/503).'),
+    minRpm: est(1500, 'rpm', 'Minimum PWM speed not read; assumed ~10% of max.'),
+    maxRpm: est(14900, 'rpm', 'Rated speed from a DigiKey listing search summary (page not opened).'),
+    maxAirflowCFM: est(130.7, 'CFM', 'DigiKey listing search summary: 130.7 CFM (3.66 m3/min). Page not opened.'),
+    maxStaticPressureMmH2O: est(101.6, 'mmH2O', 'DigiKey listing search summary: 996.3 Pa = 101.6 mmH2O. Page not opened.'),
+    maxNoiseSone: est(7.46, 'sone', 'Listing gives 69.0 dB(A). Stored as sone so the sim sone->dB(A) conversion returns 69: 2^((69-40)/10) = 7.46.'),
+    maxPowerW: est(40.8, 'W', 'DigiKey listing search summary: 40.8 W. Page not opened.'),
+    l10Hours40C: est(60000, 'h', 'Expected life not read. Industrial ball-bearing server fan assumed twice the ARCTIC desktop fan L10 (30,000 h at 40 C). Flagged.'),
+    mttfHours40C: est(420000, 'h', 'MTTF ~= 7 x L10, the relation in the ARCTIC MTTF report, applied to the assumed L10.', 'arctic-mttf-p9max'),
+    priceUSD: est(45, 'USD', 'No price opened; assumed for an 80 mm 15k rpm industrial fan. Flagged.'),
+  },
 ];
 
 // CPU coolers. thermalResistanceCW is the measured CPU-sensor temperature rise

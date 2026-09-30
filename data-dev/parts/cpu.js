@@ -18,6 +18,7 @@ export const cpus = [
   {
     id: 'cpu-vela-8', category: 'cpu', tier: 'consumer',
     displayName: 'Orrin Vela 8', realRef: 'AMD Ryzen 7 9700X',
+    maxSockets: est(1, 'sockets', 'Desktop socket AM5 platform: one CPU per board.'),
     arch: pub('zen5', '', 'wiki-ryzen-list'),
     cores: pub(8, 'cores', 'wiki-ryzen-list'), threads: pub(16, 'threads', 'wiki-ryzen-list'),
     baseClockGHz: pub(3.8, 'GHz', 'wiki-ryzen-list'), boostClockGHz: pub(5.5, 'GHz', 'wiki-ryzen-list'),
@@ -33,6 +34,7 @@ export const cpus = [
   {
     id: 'cpu-vela-16', category: 'cpu', tier: 'consumer',
     displayName: 'Orrin Vela 16', realRef: 'AMD Ryzen 9 9950X',
+    maxSockets: est(1, 'sockets', 'Desktop socket AM5 platform: one CPU per board.'),
     arch: pub('zen5', '', 'wiki-ryzen-list'),
     cores: pub(16, 'cores', 'wiki-ryzen-list'), threads: pub(32, 'threads', 'wiki-ryzen-list'),
     baseClockGHz: pub(4.3, 'GHz', 'wiki-ryzen-list'), boostClockGHz: pub(5.7, 'GHz', 'wiki-ryzen-list'),
@@ -48,6 +50,7 @@ export const cpus = [
   {
     id: 'cpu-summit-32', category: 'cpu', tier: 'workstation',
     displayName: 'Orrin Summit 32', realRef: 'AMD Ryzen Threadripper PRO 9975WX',
+    maxSockets: est(1, 'sockets', 'Workstation sTR5 platform: one CPU per board.'),
     arch: pub('zen5', '', 'wiki-threadripper'),
     cores: pub(32, 'cores', 'wiki-threadripper'), threads: pub(64, 'threads', 'wiki-threadripper'),
     baseClockGHz: pub(4.0, 'GHz', 'wiki-threadripper'), boostClockGHz: pub(5.4, 'GHz', 'wiki-threadripper'),
@@ -62,6 +65,7 @@ export const cpus = [
   {
     id: 'cpu-keystone-32-g2', category: 'cpu', tier: 'server',
     displayName: 'Orrin Keystone 32 G2', realRef: 'AMD EPYC 7532',
+    maxSockets: est(2, 'sockets', 'EPYC 7002 non-P part: 2-socket capable (P suffix marks single-socket parts).'),
     arch: pub('zen2', '', 'wiki-epyc'),
     cores: pub(32, 'cores', 'wiki-epyc'), threads: pub(64, 'threads', 'wiki-epyc'),
     baseClockGHz: pub(2.4, 'GHz', 'wiki-epyc'), boostClockGHz: pub(3.3, 'GHz', 'wiki-epyc'),
@@ -76,6 +80,7 @@ export const cpus = [
   {
     id: 'cpu-keystone-32-g5', category: 'cpu', tier: 'server',
     displayName: 'Orrin Keystone 32 G5', realRef: 'AMD EPYC 9355P',
+    maxSockets: est(1, 'sockets', 'EPYC 9355P: the P suffix marks a single-socket part.'),
     arch: pub('zen5', '', 'wiki-epyc'),
     cores: pub(32, 'cores', 'wiki-epyc'), threads: pub(64, 'threads', 'wiki-epyc'),
     baseClockGHz: pub(3.55, 'GHz', 'wiki-epyc'), boostClockGHz: pub(4.4, 'GHz', 'wiki-epyc'),
@@ -90,6 +95,7 @@ export const cpus = [
   {
     id: 'cpu-keystone-64-g5', category: 'cpu', tier: 'server',
     displayName: 'Orrin Keystone 64 G5', realRef: 'AMD EPYC 9555',
+    maxSockets: pub(2, 'sockets', 'wiki-epyc', '160 PCIe lanes in 2-socket systems implies 2P support'),
     arch: pub('zen5', '', 'wiki-epyc'),
     cores: pub(64, 'cores', 'wiki-epyc'), threads: pub(128, 'threads', 'wiki-epyc'),
     baseClockGHz: pub(3.2, 'GHz', 'wiki-epyc'), boostClockGHz: pub(4.4, 'GHz', 'wiki-epyc'),

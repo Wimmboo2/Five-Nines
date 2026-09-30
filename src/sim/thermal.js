@@ -13,7 +13,7 @@
 // If a part would pass its max temperature it throttles: power is cut until it
 // fits, and speed drops with it.
 
-import { clamp, interp } from './util.js';
+import { clamp, interp, cpuCount } from './util.js';
 import { allFans } from './power.js';
 
 export function airDensity(idx, tempC) {
@@ -99,7 +99,7 @@ export function solveTemps(idx, build, roomC, loads, s, cpuFanMode) {
     const part = idx.parts.get(build.cpu);
     const cooler = idx.parts.get(build.cooler);
     const R = cpuFanMode === 'quiet' ? cooler.thermalResistanceQuietCW : cooler.thermalResistanceCW;
-    cpu = { tempC: inletC + loads.cpuW * R, resistance: R, maxC: part.tjMaxC, fanMode: cpuFanMode };
+    cpu = { tempC: inletC + (loads.cpuW / cpuCount(build)) * R, resistance: R, maxC: part.tjMaxC, fanMode: cpuFanMode };
   }
   return { inletC, caseRiseC: caseRise, airflowCFM: flow.cfm, gpuTemps, cpu };
 }

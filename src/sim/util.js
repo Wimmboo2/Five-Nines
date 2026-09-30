@@ -53,3 +53,25 @@ export function sumDb(levels) {
   const s = levels.reduce((acc, l) => acc + 10 ** (l / 10), 0);
   return s > 0 ? 10 * Math.log10(s) : -Infinity;
 }
+
+// Number of CPU sockets populated (nodes take two).
+export function cpuCount(build) {
+  return build.cpu ? Math.max(1, build.cpuCount ?? 1) : 0;
+}
+
+// The chassis part if it is an 8-GPU node, else null.
+export function nodeOf(idx, build) {
+  const ch = build.chassis ? idx.parts.get(build.chassis) : null;
+  return ch && ch.formFactor === 'gpu-node' ? ch : null;
+}
+
+// The power supply as the power model sees it. PSU modules in a node share
+// the load, so N modules act like one supply of N x the module rating.
+// `modules` and `moduleW` let callers report redundancy.
+export function effectivePsu(idx, build) {
+  if (!build.psu) return null;
+  const part = idx.parts.get(build.psu);
+  const n = part.formFactor === 'module' ? Math.max(1, build.psuCount ?? 1) : 1;
+  if (n === 1) return { ...part, modules: 1, moduleW: part.ratedW };
+  return { ...part, displayName: `${n}x ${part.displayName}`, ratedW: n * part.ratedW, modules: n, moduleW: part.ratedW };
+}

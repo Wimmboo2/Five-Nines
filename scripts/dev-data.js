@@ -16,7 +16,7 @@ export { dev };
 
 export function allParts() {
   return [...dev.gpus, ...dev.calibrationGpus, ...dev.cpus, ...dev.rams, ...dev.storages, ...dev.psus,
-    ...dev.fans, ...dev.coolers, ...dev.networks, ...dev.chassis];
+    ...dev.fans, ...dev.coolers, ...dev.networks, ...dev.chassis, ...dev.nodes, ...dev.pdus];
 }
 
 export function validateAll() {
@@ -26,7 +26,7 @@ export function validateAll() {
   errors.push(...validateParts(allParts()));
   const trees = {
     gpus: dev.gpus, calibrationGpus: dev.calibrationGpus, cpus: dev.cpus, rams: dev.rams, storages: dev.storages,
-    psus: dev.psus, fans: dev.fans, coolers: dev.coolers, networks: dev.networks, chassis: dev.chassis,
+    psus: dev.psus, fans: dev.fans, coolers: dev.coolers, networks: dev.networks, chassis: dev.chassis, nodes: dev.nodes, pdus: dev.pdus,
     models: dev.models, engines: dev.engines, kvCacheTypes: dev.kvCacheTypes, formatComputePath: dev.formatComputePath,
     constants: dev.constants,
   };
