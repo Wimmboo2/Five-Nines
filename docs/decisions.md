@@ -37,3 +37,10 @@ Real names allowed in `dist/`. Each entry needs the user's decision recorded abo
 - **Near misses:** partial credit. Missing a target (e.g. 18 tok/s vs 20) lowers the score in proportion. It doesn't make the client angry unless a hard limit fails (doesn't fit, power, overheating). The exact formula is still an open question.
 - **Real names:** models and inference engines use their real names in the game. Hardware keeps fake brand names (locked decision).
 - **Tensor parallel:** add a per-layer TP synchronization overhead term, tagged as an estimate and **not fitted** to the one arXiv measurement. Keep hunting for more TP benchmarks (especially small models over PCIe). The user asked what that measurement used: Qwen2.5-32B-Instruct BF16, vLLM v0.9.2, 4x A100 80GB SXM, "NVLink pairs, PCIe across pairs", chat workload with 64 input / 128 output tokens.
+
+## 2026-09-30: stage 4-5 question round (scoring, near misses, job types, after delivery)
+
+- **Scoring:** weighted average. Each axis (performance, budget, power, noise, temperature) scores 0-100; the client's priority weights set how much each counts. Hard fails (won't fit, over the PSU/PDU, overheats, bad config) cap the total.
+- **Near misses and bonuses:** linear partial credit from 100 at the target down to 0 at a floor (e.g. 18 of 20 tok/s = 50 with the floor at 80% of target). Small capped bonuses for coming in under budget and under the power limit (up to +10% payout combined).
+- **Job types at launch:** inference, Minecraft server, and mixed (both on one box). Fairness: the generator builds a reference build from the catalog for every roll and only keeps the job if that build passes every target within budget. No cloud/VM jobs yet (no model built for it).
+- **After delivery:** the stress test is final. Once it passes and the player is paid, the job is done for good.

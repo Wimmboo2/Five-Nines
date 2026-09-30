@@ -14,4 +14,4 @@ export { models } from './models.js';
 export { engines, kvCacheTypes, formatComputePath } from './engines.js';
 export { constants } from './constants.js';
 export { benchmarks } from './benchmarks.js';
-export { roomSchema } from './rooms.js';
+export { roomSchema, roomArchetypes } from './rooms.js';

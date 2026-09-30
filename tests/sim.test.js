@@ -5,7 +5,7 @@ import { indexCatalog } from '../src/sim/util.js';
 import { evaluateBuild, runStressTest } from '../src/sim/index.js';
 import { buildLayout } from '../src/sim/layout.js';
 import { planMemory } from '../src/sim/memory.js';
-import { makeContext, decodeRate } from '../src/sim/inference.js';
+import { makeContext, decodeRate, groupLink } from '../src/sim/inference.js';
 import { kvBytesTotal, weightGeometry } from '../src/sim/model.js';
 import { wallPower } from '../src/sim/power.js';
 import { minecraftLoad } from '../src/sim/gameserver.js';
@@ -285,5 +285,58 @@ describe('game server', () => {
     const fast = minecraftLoad(idx, { cpu: 'cpu-vela-16' }, { players: 40 });
     expect(many.mspt).toBeGreaterThan(few.mspt);
     expect(fast.mspt).toBeLessThan(many.mspt);
+  });
+});
+
+describe('datacenter nodes and 2026 model geometry (Part 0)', () => {
+  const node = (gpu, extra = {}) => ({
+    chassis: 'node-forge-h8', cpu: 'cpu-keystone-64-g5', cpuCount: 2,
+    gpus: Array.from({ length: 8 }, () => ({ part: gpu })), ram: [{ part: 'ram-rack-32-d5-5600', count: 24 }],
+    storage: [], psu: 'psu-voltaic-m3300', psuCount: 6, fans: [], network: [], ...extra,
+  });
+  const room = { floorAreaM2: 80, heightM: 3.5, wallAreaM2: 250, wallUValue: 0.5, airChangesPerHour: 40, ambientC: 20, listenerDistanceM: 1 };
+  const sw = { inference: { engine: 'eng-sluice', model: 'mdl-tamarin-33-70b', quant: 'BF16', kvType: 'auto', contextLength: 8192, concurrency: 8, tp: 8, pp: 1 } };
+
+  it('a socketed module needs a matching node', () => {
+    const inTower = { ...exampleBuild, gpus: [{ part: 'gpu-bastion-x141' }] };
+    expect(evaluateBuild(catalog, inTower, {}, smallClosedRoom).failures.some((f) => /socketed module/.test(f.message))).toBe(true);
+    const wrongGen = evaluateBuild(catalog, node('gpu-citadel-c180'), sw, room);
+    expect(wrongGen.failures.some((f) => /does not fit/.test(f.message))).toBe(true);
+    const ok = evaluateBuild(catalog, node('gpu-bastion-x141'), sw, room);
+    expect(ok.failures).toEqual([]);
+  });
+
+  it('node TP runs over the switch fabric, not PCIe', () => {
+    const ok = evaluateBuild(catalog, node('gpu-bastion-x141'), sw, room);
+    expect(groupLink(idx, ok._build, [0, 1, 2, 3, 4, 5, 6, 7]).type).toBe('nvswitch');
+    const mi = evaluateBuild(catalog, { ...node('gpu-tessera-t192'), chassis: 'node-loom-t8', psu: 'psu-voltaic-m3000t' }, sw, room);
+    expect(mi.failures).toEqual([]);
+    expect(groupLink(idx, mi._build, [0, 1, 2, 3, 4, 5, 6, 7]).type).toBe('mesh');
+  });
+
+  it('PSU modules share the load and report redundancy; too few modules fail', () => {
+    const ok = evaluateBuild(catalog, node('gpu-bastion-x141'), sw, room);
+    expect(ok.power.psuModules).toBe(6);
+    expect(ok.power.psuSpareModules).toBeGreaterThan(0);
+    const one = evaluateBuild(catalog, node('gpu-bastion-x141', { psuCount: 1 }), sw, room);
+    expect(one.failures.some((f) => f.code === 'power')).toBe(true);
+  });
+
+  it('a PDU caps wall power', () => {
+    const r = evaluateBuild(catalog, node('gpu-bastion-x141', { pdu: 'pdu-conduit-17k' }), sw, room);
+    expect(r.power.pduCapacityW).toBe(17200);
+    expect(r.failures.filter((f) => f.code === 'power')).toEqual([]);
+  });
+
+  it('MLA models cache one latent per token per layer, not K and V per head', () => {
+    const m = idx.models.get('mdl-deep-v32');
+    expect(kvBytesTotal(m, 2, 1000, 1)).toBe(61 * 576 * 2 * 1000);
+  });
+
+  it('linear-attention layers keep a fixed state: KV grows only with the full layers', () => {
+    const m = idx.models.get('mdl-quill-38-27b');
+    const a = kvBytesTotal(m, 2, 10000, 1);
+    const b = kvBytesTotal(m, 2, 20000, 1);
+    expect(b - a).toBe(16 * 2 * 4 * 256 * 2 * 10000);
   });
 });

@@ -55,6 +55,7 @@ export function buildGameData(dev, { includeCalibrationHardware = false } = {}) 
     kvCacheTypes: s(dev.kvCacheTypes),
     formatComputePath: s(dev.formatComputePath),
     constants: s(dev.constants),
+    roomArchetypes: s(dev.roomArchetypes),
   };
 }
 

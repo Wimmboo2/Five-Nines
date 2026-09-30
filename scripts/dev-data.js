@@ -28,7 +28,7 @@ export function validateAll() {
     gpus: dev.gpus, calibrationGpus: dev.calibrationGpus, cpus: dev.cpus, rams: dev.rams, storages: dev.storages,
     psus: dev.psus, fans: dev.fans, coolers: dev.coolers, networks: dev.networks, chassis: dev.chassis, nodes: dev.nodes, pdus: dev.pdus,
     models: dev.models, engines: dev.engines, kvCacheTypes: dev.kvCacheTypes, formatComputePath: dev.formatComputePath,
-    constants: dev.constants,
+    constants: dev.constants, roomArchetypes: dev.roomArchetypes,
   };
   for (const [name, tree] of Object.entries(trees)) errors.push(...validateDevTree(tree, sourceIds, name));
   errors.push(...validateBenchmarks(dev.benchmarks, {
