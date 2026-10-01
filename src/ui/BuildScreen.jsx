@@ -10,7 +10,7 @@ function Check({ ok, children }) {
   return <li className={ok == null ? '' : ok ? 'ok' : 'bad'}><span className="dot" />{children}</li>;
 }
 
-export function BuildScreen({ catalog, idx, job, build, setBuild, software, run, broken, onRunTest, onReplace, onDeliver }) {
+export function BuildScreen({ catalog, idx, job, build, setBuild, software, run, broken, onRunTest, onReplace, onDeliver, onProgress }) {
   const rows = installed(idx, build);
   const result = useMemo(() => {
     if (!job) return null;
@@ -56,7 +56,7 @@ export function BuildScreen({ catalog, idx, job, build, setBuild, software, run,
           {broken && <p className="bad-text" data-testid="broken-part">{broken.label} is broken. <button className="small" onClick={onReplace} data-testid="replace-part">Replace it</button></p>}
           <button onClick={() => onRunTest(result.ev, simSoftware(software))} disabled={!!broken} data-testid="run-test">
             {run ? 'Run the test again from the start' : 'Run stress test'}</button>
-          {run && <StressTest key={run.seed} run={run} />}
+          {run && <StressTest key={run.seed} run={run} onProgress={onProgress} />}
           <button className="deliver" disabled={!canDeliver(run, simBuild(build), simSoftware(software)) || !!broken}
             onClick={() => onDeliver(result.ev, result.score)} data-testid="deliver">Deliver to client</button>
           {run && !canDeliver(run, simBuild(build), simSoftware(software)) && run.result.completed && <p className="muted">The build or software changed since the test: run it again.</p>}

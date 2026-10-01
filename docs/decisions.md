@@ -116,3 +116,16 @@ Simplest reasonable values where the user's answers and the research left a numb
 - XP per delivery = job xp x score/100 rounded; money = payout x payoutMultiplier rounded (existing SCORING rules).
 - The stress test is computed in full when started and then played back at 60x (one sample per simulated minute, one per real second). Same results as running it live, since the sim is deterministic per seed.
 - Delivered jobs leave the board; the board rerolls when the level changes (new tiers/types unlock).
+
+## 2026-10-01: stage 8 question round (saving)
+
+- **Job board on reload:** the rolled jobs are saved as they are (full job objects). A job whose model or reference parts no longer exist is dropped on load and the player is told.
+- **Economy (logged, not built):** the client's budget pays for parts, the fee is the player's profit, starting money stays $0. Money is what the player spends on the level 5 personal datacenter and what the hard-mode penalty takes.
+- **Save slots:** one save with a New game button (asks to confirm and offers an export first).
+
+### Stage 8 values picked by Claude, pending sign-off
+- Autosave 500 ms after any change, every 15 s for the play clock, and on tab close (`AUTOSAVE_DEBOUNCE_MS`, `PLAYED_SAVE_EVERY_MS` in src/App.jsx).
+- Play clock: 1 s ticks, each adds at most 2 s (`MAX_TICK_S` in src/save/clock.js), so a sleeping laptop or throttled background tab adds no time away.
+- Save checksum is FNV-1a: it catches corruption and hand edits, but anyone can recompute it, so it is not tamper-proof.
+- An unreadable save (corrupt, unknown version) is never overwritten: the game runs unsaved until the player picks New game or imports, and can export the old raw save.
+- Two tabs: the tab opened later stops saving and warns; it has a "Use this tab instead" button that hands saving over to it.

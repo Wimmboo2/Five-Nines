@@ -1,5 +1,7 @@
 # Five Nines: session handoff (2026-09-30)
 
+> **Update 2026-10-01 (later): stage 8 is done** (commit "Stage 8: localStorage saves"). `src/save/` (save.js format + checksum + migrations + pruning, storage.js try/catch wrapper, tabs.js second-tab detection, clock.js play clock), `src/game/state.js` (whole game state, `toSaveData`, `restoreRun`), `src/ui/SaveBar.jsx` (export/import/new game, banners). All game state in `src/App.jsx` is one object that autosaves. Economy answer logged (client pays parts, fee is profit, $0 start). Next: stage 9 (personal datacenter, backups), stage 10 (difficulty).
+>
 > **Update 2026-10-01: stages 6 and 7 are done** (commits "Stage 6: in-game browser, config apps, cloud/VM sim" and "Stage 7: stress test, delivery, payout, xp, levels"). This note is current where it disagrees with §2-§10 below, which describe the state before stage 6.
 >
 > - **Stage 6:** Software tab with four config apps (OS, inference, game server, VMs), every setting fed into `evaluateBuild`; Browser tab with 8 guide pages (`src/content/pages.js`, sources in `docs/research/software.md`); `src/sim/vm.js` (VM fleet on KVM); game-server distances + server software in `src/sim/gameserver.js`; OS compatibility in `src/sim/evaluate.js`; cloud job type and level gates in `src/jobs/` (`levels.js`, `generate.js`); `defaultSoftware` became the generator-only `referenceSoftware`. Calibration (stage 3 follow-up) passes: held-out median 11.4%, worst 50.7%.

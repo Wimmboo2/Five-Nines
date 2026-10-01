@@ -7,15 +7,17 @@ export const PLAYBACK_MS_PER_SAMPLE = 1000;
 
 const clock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-export function StressTest({ run, onDone }) {
+export function StressTest({ run, onDone, onProgress }) {
   const samples = run.result.samples;
-  const [i, setI] = useState(0);
+  // Resume from the saved simulated time after a reload.
+  const [i, setI] = useState(() => Math.max(0, samples.findIndex((s) => s.t >= (run.positionS ?? 0))));
   const done = i >= samples.length - 1;
   useEffect(() => {
     if (done) { onDone?.(); return undefined; }
     const h = setTimeout(() => setI((x) => x + 1), PLAYBACK_MS_PER_SAMPLE);
     return () => clearTimeout(h);
   }, [i, done]);
+  useEffect(() => { if (samples[i]) onProgress?.(samples[i].t); }, [i]);
   const s = samples[Math.min(i, samples.length - 1)];
   if (!s) return <p className="bad-text" data-testid="stress-failed">{run.result.failure?.message}</p>;
   const throttled = s.throttle.some((p) => p < 0.999);

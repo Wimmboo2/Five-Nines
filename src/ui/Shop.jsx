@@ -1,10 +1,10 @@
-import { useState } from 'react';
 import { Tagged } from './Tagged.jsx';
 import { CATEGORY_LABELS, TIER_LABELS, SPEC_KEYS, SPEC_LABELS, portsSummary } from './format.js';
 
-export function Shop({ tagged, build, onAdd, countOf }) {
-  const [cat, setCat] = useState('all');
-  const [tier, setTier] = useState('all');
+export function Shop({ tagged, build, onAdd, countOf, filters, setFilters }) {
+  const { cat, tier } = filters;
+  const setCat = (c) => setFilters({ ...filters, cat: c });
+  const setTier = (t) => setFilters({ ...filters, tier: t });
   const cats = Object.keys(tagged.parts);
   const parts = cats.flatMap((c) => tagged.parts[c].map((p) => ({ ...p, _cat: c })))
     .filter((p) => (cat === 'all' || p._cat === cat) && (tier === 'all' || p.tier === tier));

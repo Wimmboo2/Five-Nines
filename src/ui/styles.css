@@ -78,3 +78,9 @@ main { padding: 16px 20px 40px; }
 .ok-text { color: #1e8449; }
 button.deliver { margin-top: 8px; display: block; }
 .locked { margin: 0 0 8px; }
+.savebar { display: flex; gap: 8px; align-items: center; padding: 6px 20px; flex-wrap: wrap; }
+.savebar .confirm { display: inline-flex; gap: 6px; align-items: center; }
+.banner { margin: 6px 20px; padding: 8px 12px; border-radius: 6px; }
+.banner.warn { background: #5a4a12; color: #fff3c4; }
+.banner.bad { background: #5a1a1a; color: #ffd6d6; }
+button.danger { background: #a93226; }
