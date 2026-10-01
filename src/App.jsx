@@ -7,9 +7,12 @@ import { Shop } from './ui/Shop.jsx';
 import { BuildScreen } from './ui/BuildScreen.jsx';
 import { BudgetMeter } from './ui/BudgetMeter.jsx';
 import { emptyBuild, addPart, installed, simBuild } from './ui/buildState.js';
+import { emptySoftware } from './ui/softwareState.js';
+import { SoftwareScreen } from './ui/SoftwareScreen.jsx';
+import { Browser } from './ui/Browser.jsx';
 
 const idx = indexCatalog(catalog);
-const TABS = [['jobs', 'Job board'], ['shop', 'Shop'], ['build', 'Build']];
+const TABS = [['jobs', 'Job board'], ['shop', 'Shop'], ['software', 'Software'], ['browser', 'Browser'], ['build', 'Build']];
 
 export default function App() {
   const [tab, setTab] = useState('jobs');
@@ -17,6 +20,7 @@ export default function App() {
   const jobs = useMemo(() => generateJobs(catalog, { seed: boardSeed, count: 6 }), [boardSeed]);
   const [activeJob, setActiveJob] = useState(null);
   const [build, setBuild] = useState(emptyBuild);
+  const [software, setSoftware] = useState(emptySoftware);
   const cost = buildCost(idx, simBuild(build));
   const counts = useMemo(() => {
     const c = new Map();
@@ -36,7 +40,9 @@ export default function App() {
         {tab === 'jobs' && <JobBoard jobs={jobs} idx={idx} activeJob={activeJob} onReroll={() => setBoardSeed((s) => s + 1)}
           onTake={(j) => { setActiveJob(j); setTab('shop'); }} />}
         {tab === 'shop' && <Shop tagged={tagged} build={build} onAdd={(p) => setBuild((b) => addPart(b, idx.parts.get(p.id)))} countOf={(id) => counts.get(id)} />}
-        {tab === 'build' && <BuildScreen catalog={catalog} idx={idx} job={activeJob} build={build} setBuild={setBuild} />}
+        {tab === 'software' && <SoftwareScreen idx={idx} catalog={catalog} software={software} setSoftware={setSoftware} gpuCount={build.gpus.length} />}
+        {tab === 'browser' && <Browser />}
+        {tab === 'build' && <BuildScreen catalog={catalog} idx={idx} job={activeJob} build={build} setBuild={setBuild} software={software} />}
       </main>
     </div>
   );

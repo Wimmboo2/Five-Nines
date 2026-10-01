@@ -65,7 +65,7 @@ describe('denied-term matching', () => {
   });
   it('allows the engine and model names the user approved, and still denies everything else', () => {
     const terms = deniedTerms();
-    for (const t of ['llama.cpp', 'vLLM', 'SGLang', 'Qwen', 'Llama', 'gpt-oss']) expect(terms).not.toContain(t);
-    for (const t of ['NVIDIA', 'GeForce', 'OpenAI', 'Hugging Face', 'Minecraft', 'Proxmox', 'Samsung']) expect(terms).toContain(t);
+    for (const t of ['llama.cpp', 'vLLM', 'SGLang', 'Qwen', 'Llama', 'gpt-oss', 'Proxmox']) expect(terms).not.toContain(t);
+    for (const t of ['NVIDIA', 'GeForce', 'OpenAI', 'Hugging Face', 'Minecraft', 'Proxmox Server Solutions', 'Mojang', 'Samsung']) expect(terms).toContain(t);
   });
 });

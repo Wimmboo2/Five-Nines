@@ -140,5 +140,31 @@ export const constants = {
     refSingleThreadIndex: est(3.3, 'GHz x IPC', 'Reference CPU for the two numbers above: a Zen 2 core at 3.3 GHz.'),
     ramGBPerPlayer: est(0.3, 'GB', 'Minecraft wiki: 10+ players ~4 GB (Server/Requirements); ~0.3 GB/player on top of a 1 GB base. Rough.', 'mc-wiki-req'),
     ramGBBase: pub(1, 'GB', 'mc-wiki-req', 'minimum for 1-4 players'),
+    // Stage 6: server.properties distances (radius in chunks, so the square of
+    // chunks around each player is (2r+1)^2). The per-player numbers above are
+    // taken to hold at the default distance of 10.
+    defaultDistance: pub(10, 'chunks', 'mc-wiki-props', 'view-distance and simulation-distance default'),
+    minDistance: pub(3, 'chunks', 'mc-wiki-props'),
+    maxDistance: pub(32, 'chunks', 'mc-wiki-props'),
+    tickScalesWithSimArea: est(1, 'exponent', 'Per-player tick cost is taken as proportional to the ticked chunk area (2r+1)^2 set by simulation-distance, since that is the area whose entities and chunks the server updates (server.properties description). No measurement of MSPT vs distance was found. Pending sign-off.', 'mc-wiki-props'),
+    ramScalesWithViewArea: est(1, 'exponent', 'Per-player RAM is taken as proportional to the loaded chunk area (2r+1)^2 set by view-distance (the world data the server keeps and sends). No measurement found. Pending sign-off.', 'mc-wiki-props'),
+    optimizedForkTickFactor: est(0.7, 'x', 'Tick-cost multiplier for the optimized server fork vs vanilla. Its docs say it is designed to greatly improve performance but give no number; Meterstick found its ticks often under 50 ms on farm and TNT workloads where vanilla exceeded it, but no clean ratio. Simplest reasonable value, pending sign-off.', 'meterstick'),
+  },
+
+  // Stage 6: virtualization (cloud/VM jobs on the hypervisor).
+  virt: {
+    cpuFactorTuned: meas(0.98, 'x', 'ibm-kvm-2014', 'Linpack under KVM with vCPU pinning and host cache topology exposed: 284.2 vs 290.8 GFLOPS native (-2%)'),
+    cpuFactorUntuned: meas(0.83, 'x', 'ibm-kvm-2014', 'Linpack under default KVM: 241.3 vs 290.8 GFLOPS native (-17%)'),
+    cpuTypeHostIsTuned: est(1, 'bool', 'CPU type "host" passes the real CPU model to the guest, the closest hypervisor setting to the paper\'s tuned run; the generic default type is mapped to the untuned run. Mapping is an estimate.', 'pve-qemu'),
+    iopsFactor: meas(0.5, 'x', 'ibm-kvm-2014', 'random I/O: "KVM delivers only half as many IOPS" as native, with virtio'),
+    qcow2IopsFactor: est(1 / 1.1, 'x', 'Proxmox wiki: raw is "up to 10% faster" than qcow2; the upper bound is used, so qcow2 gets 1/1.1 of raw.', 'pve-qemu'),
+    hostReserveGB: pub(2, 'GB', 'pve-sysreq', 'recommended minimum memory for the OS and Proxmox VE services, plus memory for guests'),
+    vcpuPerCore: est(1, 'x', 'Guest CPU speed counts physical cores only (an SMT sibling thread adds no full core). No measurement of SMT gain under VMs found; simplest assumption, pending sign-off.'),
+  },
+
+  // Stage 6: which software runs on which OS (published install requirements).
+  osCompat: {
+    vllmLinuxOnly: pub(1, 'bool', 'vllm-install', 'OS: Linux; "vLLM does not support Windows natively"'),
+    sglangLinuxOnly: pub(1, 'bool', 'sglang-install', 'install instructions target Linux'),
   },
 };

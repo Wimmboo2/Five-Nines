@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { evaluateForJob, scoreDelivery, defaultSoftware, DEFAULT_SOFTWARE_NOTE, measure } from '../jobs/index.js';
+import { evaluateForJob, scoreDelivery, measure } from '../jobs/index.js';
+import { simSoftware } from './softwareState.js';
 import { installed, removeOne, simBuild } from './buildState.js';
 import { usd, num, gb } from './format.js';
 
@@ -7,18 +8,18 @@ function Check({ ok, children }) {
   return <li className={ok == null ? '' : ok ? 'ok' : 'bad'}><span className="dot" />{children}</li>;
 }
 
-export function BuildScreen({ catalog, idx, job, build, setBuild }) {
+export function BuildScreen({ catalog, idx, job, build, setBuild, software }) {
   const rows = installed(idx, build);
   const result = useMemo(() => {
     if (!job) return null;
     const b = simBuild(build);
-    const sw = defaultSoftware(idx, job.workload, b);
+    const sw = simSoftware(software);
     const t0 = performance.now();
     const ev = evaluateForJob(catalog, job, b, sw, { idx });
     const ms = performance.now() - t0;
     const score = ev.power ? scoreDelivery(ev, job) : null;
     return { ev, sw, ms, score, m: ev.power ? measure(ev, job) : null };
-  }, [catalog, idx, job, build]);
+  }, [catalog, idx, job, build, software]);
 
   return (
     <div className="build-layout">
@@ -41,7 +42,7 @@ export function BuildScreen({ catalog, idx, job, build, setBuild }) {
 
       <section className="card results" data-testid="build-results">
         <h2>Live results</h2>
-        <p className="temp-note" data-testid="temp-software">{DEFAULT_SOFTWARE_NOTE}{result?.sw.inference ? ` Running: ${idx.engines.get(result.sw.inference.engine).displayName}, ${result.sw.inference.quant} weights${result.sw.inference.tp > 1 ? `, tensor parallel ${result.sw.inference.tp}` : ''}${result.sw.inference.splitMode === 'layer' ? ', layer split' : ''}.` : ''}</p>
+        {job && !software.os && <p className="muted" data-testid="no-software">No software set up yet: open the Software tab.</p>}
         {!job && <p>Take a job from the job board to see results against its targets.</p>}
         {job && result && <Results job={job} idx={idx} {...result} />}
       </section>
@@ -77,6 +78,8 @@ function Results({ job, idx, ev, m, ms, score }) {
           <ul className="checks">
             {t.tokPerSec && <Check ok={m.tokPerSec >= t.tokPerSec.value}>Speed per user: {num(m.tokPerSec, 1)} tok/s at {num(t.tokPerSec.atContext)} ctx (target {t.tokPerSec.value})</Check>}
             {t.tps && <Check ok={m.tps >= t.tps.value}>Game server: {num(m.tps, 1)} TPS (target {t.tps.value})</Check>}
+            {t.vmCpu && <Check ok={m.vmCpu >= t.vmCpu.value}>CPU per VM: {num(m.vmCpu, 2)} reference cores (target {t.vmCpu.value})</Check>}
+            {t.vmIops && <Check ok={m.vmIops >= t.vmIops.value}>Disk per VM: {num(m.vmIops)} IOPS (target {num(t.vmIops.value)})</Check>}
             <Check ok={m.wallW <= t.powerLimitW}>Wall power: {num(m.wallW)} W (limit {num(t.powerLimitW)})</Check>
             {t.noiseLimitDBA != null && <Check ok={m.dBA <= t.noiseLimitDBA}>Noise at {num(job.room.listenerDistanceM, 1)} m: {num(m.dBA, 1)} dBA (limit {t.noiseLimitDBA})</Check>}
             <Check ok={m.roomC <= t.roomTempLimitC}>Room: {num(m.roomC, 1)} C (limit {num(t.roomTempLimitC, 1)})</Check>

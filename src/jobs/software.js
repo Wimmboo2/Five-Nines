@@ -1,10 +1,10 @@
-// TEMPORARY default software setup (stage 6 replaces this with the in-game
-// config apps). One fixed rule set: llama.cpp with Q4_K_M-class weights on
-// PCIe builds, vLLM with tensor parallel across a node's GPUs.
+// Reference software setup the job generator uses to prove a job is solvable.
+// Generator-only: the player configures their own software in the config apps.
+// llama.cpp with Q4_K_M-class weights on PCIe builds, vLLM with tensor parallel
+// across a node's GPUs, game servers at the client's requested distances,
+// VMs with CPU type host and raw disks.
 
 import { nodeOf } from '../sim/util.js';
-
-export const DEFAULT_SOFTWARE_NOTE = 'Temporary default setup: config apps arrive in stage 6.';
 
 const GGUF_PREF = ['Q4_K_M', 'Q4_0', 'Q5_K_M', 'Q6_K', 'Q8_0', 'MXFP4', 'BF16', 'F16'];
 const HF_PREF = ['FP8', 'MXFP4', 'BF16', 'AWQ'];
@@ -14,8 +14,8 @@ function largestTp(n, kvHeads) {
   return 1;
 }
 
-export function defaultSoftware(idx, workload, build) {
-  const sw = {};
+export function referenceSoftware(idx, workload, build) {
+  const sw = { os: workload.cloud ? 'proxmox' : 'linux' };
   if (workload.inference && build.gpus.length > 0) {
     const w = workload.inference;
     const model = idx.models.get(w.model);
@@ -31,6 +31,10 @@ export function defaultSoftware(idx, workload, build) {
         concurrency: w.concurrency, splitMode: n > 1 ? 'layer' : 'none', gpuLayers: 'all' };
     }
   }
-  if (workload.gameServer) sw.gameServers = [{ type: 'minecraft', players: workload.gameServer.players }];
+  if (workload.gameServer) {
+    const g = workload.gameServer;
+    sw.gameServers = [{ type: 'minecraft', players: g.players, viewDistance: g.viewDistance, simulationDistance: g.simulationDistance, software: 'vanilla' }];
+  }
+  if (workload.cloud) sw.cloud = { ...workload.cloud, cpuType: 'host', diskFormat: 'raw' };
   return sw;
 }

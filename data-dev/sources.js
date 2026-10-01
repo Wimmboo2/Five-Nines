@@ -137,4 +137,18 @@ export const sources = [
   { id: 'mc-wiki-tick', kind: 'docs', title: 'Minecraft Wiki: Tick', url: 'https://minecraft.wiki/w/Tick', accessed: A },
   { id: 'mc-wiki-req', kind: 'docs', title: 'Minecraft Wiki: Server/Requirements', url: 'https://minecraft.wiki/w/Server/Requirements', accessed: A },
   { id: 'pve-qemu', kind: 'docs', title: 'Proxmox VE wiki: Qemu/KVM Virtual Machines', url: 'https://pve.proxmox.com/wiki/Qemu/KVM_Virtual_Machines', accessed: A },
+  // Stage 6 (software layer). Accessed 2026-09-30.
+  { id: 'ibm-kvm-2014', kind: 'paper', title: 'Felter et al., IBM Research RC25482 (2014): An Updated Performance Comparison of Virtual Machines and Linux Containers', url: 'https://www.read.seas.harvard.edu/~kohler/class/cs260r-s19/containerperf14.pdf', accessed: A },
+  { id: 'meterstick', kind: 'paper', title: 'Eickhoff et al., Meterstick: Benchmarking Performance Variability in Cloud and Self-hosted Minecraft-like Games (arXiv 2112.06963, ICPE 2023)', url: 'https://arxiv.org/abs/2112.06963', accessed: A },
+  { id: 'mc-wiki-props', kind: 'docs', title: 'Minecraft Wiki: server.properties', url: 'https://minecraft.wiki/w/Server.properties', accessed: A },
+  { id: 'paper-docs', kind: 'docs', title: 'PaperMC documentation: Paper', url: 'https://docs.papermc.io/paper/', accessed: A },
+  { id: 'vllm-install', kind: 'docs', title: 'vLLM docs: GPU installation (requirements)', url: 'https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html', accessed: A },
+  { id: 'vllm-args', kind: 'docs', title: 'vLLM docs: engine arguments', url: 'https://docs.vllm.ai/en/latest/configuration/engine_args.html', accessed: A },
+  { id: 'sglang-install', kind: 'docs', title: 'SGLang docs: install', url: 'https://docs.sglang.io/get_started/install.html', accessed: A },
+  { id: 'sglang-args', kind: 'docs', title: 'SGLang docs: server arguments', url: 'https://docs.sglang.io/advanced_features/server_arguments.html', accessed: A },
+  { id: 'lcpp-server', kind: 'docs', title: 'llama.cpp tools/server README (flags)', url: 'https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md', accessed: A },
+  { id: 'lcpp-quantize', kind: 'docs', title: 'llama.cpp tools/quantize README', url: 'https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md', accessed: A },
+  { id: 'pve-sysreq', kind: 'docs', title: 'Proxmox VE wiki: System Requirements', url: 'https://pve.proxmox.com/wiki/System_Requirements', accessed: A },
+  { id: 'pve-media-kit', kind: 'reference', title: 'Proxmox media kit (trademark use rules)', url: 'https://proxmox.com/en/about/company-details/media-kit', accessed: A },
+  { id: 'lcpp-mmq-commit', kind: 'reference', title: 'llama.cpp git history: commit a818f3028 (PR #8075) and ggml-cuda.cu at 8f7080bf4', url: 'https://github.com/ggml-org/llama.cpp/pull/8075', accessed: A },
 ];

@@ -1,6 +1,6 @@
 import { usd, num } from './format.js';
 
-const TYPE_LABELS = { inference: 'AI inference', 'game-server': 'Game server', mixed: 'Inference + game server' };
+const TYPE_LABELS = { inference: 'AI inference', 'game-server': 'Game server', mixed: 'Inference + game server', cloud: 'VM hosting' };
 const TIER_LABELS = { homelab: 'Homelab', server: 'Server', datacenter: 'Mini datacenter' };
 const AXES = ['performance', 'budget', 'power', 'noise', 'temperature'];
 
@@ -30,7 +30,9 @@ export function JobCard({ job, catalogIdx, active, onTake }) {
         <h4>Targets</h4>
         <ul className="kv">
           {t.tokPerSec && <li><span>Speed per user</span><b>{num(t.tokPerSec.value)} tok/s at {num(t.tokPerSec.atContext)} ctx</b></li>}
-          {t.tps && <li><span>Game server</span><b>{t.tps.value} TPS with {t.tps.players} players</b></li>}
+          {t.tps && <li><span>Game server</span><b>{t.tps.value} TPS with {t.tps.players} players, view and simulation distance at least {job.workload.gameServer.viewDistance}</b></li>}
+          {job.workload.cloud && <li><span>VMs</span><b>{job.workload.cloud.count} x {job.workload.cloud.vcpus} vCPU, {job.workload.cloud.ramGB} GB RAM, {job.workload.cloud.diskGB} GB disk; overcommit at most {job.workload.cloud.maxOvercommit}:1</b></li>}
+          {t.vmCpu && <li><span>CPU per VM</span><b>{t.vmCpu.value} reference cores, {num(t.vmIops.value)} disk IOPS</b></li>}
           <li><span>Power limit</span><b>{num(t.powerLimitW)} W at the wall</b></li>
           {t.noiseLimitDBA != null
             ? <li><span>Noise limit</span><b>{t.noiseLimitDBA} dBA at {num(r.listenerDistanceM, 1)} m</b></li>

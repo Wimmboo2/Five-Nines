@@ -49,8 +49,40 @@ function overBy(achieved, limit, span) {
 
 export function evaluateForJob(catalog, job, build, software, opts = {}) {
   const idx = opts.idx ?? indexCatalog(catalog);
-  const ev = evaluateBuild(catalog, build, software, job.room, { idx });
-  return { ...ev, costUSD: buildCost(idx, build) };
+  const w = job.workload;
+  // The client's overcommit limit is theirs, not a player setting.
+  const sw = software.cloud && w.cloud ? { ...software, cloud: { ...software.cloud, maxOvercommit: w.cloud.maxOvercommit } } : software;
+  const ev = evaluateBuild(catalog, build, sw, job.room, { idx });
+  const failures = [...(ev.failures ?? []), ...requirementFailures(w, software)];
+  return { ...ev, failures, costUSD: buildCost(idx, build) };
+}
+
+// What the client asked for that the player's config must meet.
+function requirementFailures(w, sw) {
+  const out = [];
+  if (w.inference && !sw.inference) out.push({ code: 'config', message: 'The client needs an inference server: set one up in the inference app.' });
+  if (w.inference && sw.inference) {
+    if (sw.inference.model !== w.inference.model) out.push({ code: 'config', message: 'The inference server runs a different model than the client asked for.' });
+    if ((sw.inference.contextLength ?? 0) < w.inference.contextLength) out.push({ code: 'config', message: `The client needs a ${w.inference.contextLength.toLocaleString('en-US')}-token context.` });
+    if ((sw.inference.concurrency ?? 1) < w.inference.concurrency) out.push({ code: 'config', message: `The client needs ${w.inference.concurrency} concurrent users.` });
+  }
+  if (w.gameServer) {
+    const g = sw.gameServers?.[0];
+    if (!g) out.push({ code: 'config', message: 'The client needs a game server: set one up in the game server app.' });
+    else {
+      if (g.players < w.gameServer.players) out.push({ code: 'config', message: `The client needs room for ${w.gameServer.players} players.` });
+      if ((g.viewDistance ?? 10) < w.gameServer.viewDistance) out.push({ code: 'config', message: `The client asked for a view distance of at least ${w.gameServer.viewDistance}.` });
+      if ((g.simulationDistance ?? 10) < w.gameServer.simulationDistance) out.push({ code: 'config', message: `The client asked for a simulation distance of at least ${w.gameServer.simulationDistance}.` });
+    }
+  }
+  if (w.cloud) {
+    const c = sw.cloud;
+    if (!c) out.push({ code: 'config', message: 'The client needs VMs: set them up in the VM app.' });
+    else for (const k of ['count', 'vcpus', 'ramGB', 'diskGB']) {
+      if ((c[k] ?? 0) < w.cloud[k]) out.push({ code: 'config', message: `The client asked for ${w.cloud.count} VMs with ${w.cloud.vcpus} vCPUs, ${w.cloud.ramGB} GB RAM and ${w.cloud.diskGB} GB disk each.` });
+    }
+  }
+  return [...new Map(out.map((f) => [f.message, f])).values()];
 }
 
 export function scoreDelivery(evaluation, job) {
@@ -58,10 +90,12 @@ export function scoreDelivery(evaluation, job) {
   const t = job.targets;
   const m = measure(evaluation, job);
   const axes = {};
-  if (t.tokPerSec || t.tps) {
+  if (t.tokPerSec || t.tps || t.vmCpu || t.vmIops) {
     const parts = [];
     if (t.tokPerSec) parts.push(higherIsBetter(m.tokPerSec, t.tokPerSec.value));
     if (t.tps) parts.push(higherIsBetter(m.tps, t.tps.value));
+    if (t.vmCpu) parts.push(higherIsBetter(m.vmCpu, t.vmCpu.value));
+    if (t.vmIops) parts.push(higherIsBetter(m.vmIops, t.vmIops.value));
     axes.performance = Math.min(...parts);
   }
   axes.budget = lowerIsBetter(evaluation.costUSD, job.budgetUSD);

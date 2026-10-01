@@ -16,7 +16,8 @@ import { makeRng, indexCatalog } from '../sim/util.js';
 import { evaluateBuild } from '../sim/evaluate.js';
 import { CLIENTS, TIERS } from './clients.js';
 import { referenceCandidates } from './templates.js';
-import { defaultSoftware } from './software.js';
+import { referenceSoftware } from './software.js';
+import { tierOpen, typeOpen } from './levels.js';
 
 // Game-design constants for how much slack jobs get around the reference build.
 // Values picked by Claude, pending the user's sign-off: see docs/decisions.md,
@@ -34,10 +35,15 @@ export const GEN = {
 };
 
 const WORKLOAD = {
-  homelab: { maxWeightsGB: 40, contexts: [4096, 8192, 16384, 32768], concurrency: [1, 1, 2], players: [4, 30] },
-  server: { maxWeightsGB: 300, contexts: [8192, 32768, 65536], concurrency: [1, 4, 8], players: [20, 120] },
-  datacenter: { minNativeGB: 60, contexts: [8192, 32768, 131072], concurrency: [16, 32, 64, 128], players: null },
+  homelab: { maxWeightsGB: 40, contexts: [4096, 8192, 16384, 32768], concurrency: [1, 1, 2], players: [4, 30],
+    vms: { count: [2, 6], vcpus: [2, 4], ramGB: [4, 8], diskGB: [32, 64], maxOvercommit: [2, 4] } },
+  server: { maxWeightsGB: 300, contexts: [8192, 32768, 65536], concurrency: [1, 4, 8], players: [20, 120],
+    vms: { count: [8, 24], vcpus: [2, 4, 8], ramGB: [8, 16], diskGB: [64, 128], maxOvercommit: [2, 4] } },
+  datacenter: { minNativeGB: 60, contexts: [8192, 32768, 131072], concurrency: [16, 32, 64, 128], players: null, vms: null },
 };
+// Game servers: the client asks for the published default distances (10).
+// Pending sign-off (docs/decisions.md).
+const GAME_SERVER_DISTANCE = 10;
 
 function pick(rng, list) { return list[Math.floor(rng() * list.length)]; }
 function between(rng, [lo, hi]) { return lo + (hi - lo) * rng(); }
@@ -90,7 +96,15 @@ function rollWorkload(rng, catalog, tier, type) {
   }
   if (type === 'game-server' || type === 'mixed') {
     const [lo, hi] = w.players;
-    out.gameServer = { type: 'minecraft', players: Math.round(between(rng, [lo, type === 'mixed' ? (lo + hi) / 2 : hi])) };
+    out.gameServer = { type: 'minecraft', players: Math.round(between(rng, [lo, type === 'mixed' ? (lo + hi) / 2 : hi])),
+      viewDistance: GAME_SERVER_DISTANCE, simulationDistance: GAME_SERVER_DISTANCE };
+  }
+  if (type === 'cloud') {
+    const v = w.vms;
+    out.cloud = {
+      count: Math.round(between(rng, v.count)), vcpus: pick(rng, v.vcpus), ramGB: pick(rng, v.ramGB),
+      diskGB: pick(rng, v.diskGB), maxOvercommit: pick(rng, v.maxOvercommit),
+    };
   }
   return out;
 }
@@ -103,6 +117,8 @@ export function measure(evaluation, job) {
   return {
     tokPerSec: atCtx?.perSequence ?? null,
     tps: evaluation.gameServers?.[0]?.tps ?? null,
+    vmCpu: evaluation.cloud?.cpuPerVm ?? null,
+    vmIops: evaluation.cloud?.iopsPerVm ?? null,
     wallW: evaluation.power?.wallW ?? null,
     dBA: evaluation.noise?.atListenerDBA ?? null,
     roomC: evaluation.thermal?.roomC ?? null,
@@ -114,8 +130,8 @@ export function measure(evaluation, job) {
 // jobs fit a modest build but some are sized for the bigger hardware.
 function findReference(rng, catalog, idx, tier, workload, room) {
   const ok = [];
-  for (const cand of referenceCandidates(catalog, idx, tier, !!workload.inference)) {
-    const sw = defaultSoftware(idx, workload, cand.build);
+  for (const cand of referenceCandidates(catalog, idx, tier, !!workload.inference, !!workload.cloud)) {
+    const sw = referenceSoftware(idx, workload, cand.build);
     const ev = evaluateBuild(catalog, cand.build, sw, room, { idx });
     if (ev.failures.length) continue;
     if (workload.gameServer && !(ev.gameServers[0]?.tps >= GEN.mcTps - 1e-9)) continue;
@@ -130,10 +146,11 @@ export function generateJob(catalog, opts = {}) {
   const difficulty = opts.difficulty ?? 'normal';
   const idx = opts.idx ?? indexCatalog(catalog);
   const rng = makeRng(seed);
-  const tier = opts.tier ?? pick(rng, TIERS);
+  const level = opts.level ?? Infinity;
+  const tier = opts.tier ?? pick(rng, TIERS.filter((t) => tierOpen(t, level)));
   for (let attempt = 0; attempt < GEN.maxTries; attempt++) {
-    const client = pick(rng, CLIENTS.filter((c) => c.tier === tier));
-    const type = pick(rng, client.jobTypes);
+    const client = pick(rng, CLIENTS.filter((c) => c.tier === tier && c.jobTypes.some((t) => typeOpen(t, level))));
+    const type = pick(rng, client.jobTypes.filter((t) => typeOpen(t, level)));
     const workload = rollWorkload(rng, catalog, tier, type);
     const room = rollRoom(rng, catalog, tier);
     const ref = findReference(rng, catalog, idx, tier, workload, room);
@@ -145,6 +162,10 @@ export function generateJob(catalog, opts = {}) {
         atContext: workload.inference.contextLength, concurrency: workload.inference.concurrency };
     }
     if (workload.gameServer) targets.tps = { value: GEN.mcTps, players: workload.gameServer.players };
+    if (workload.cloud) {
+      targets.vmCpu = { value: roundTo(m.vmCpu * between(rng, GEN.perfTargetOfRef), 0.1) };
+      targets.vmIops = { value: roundTo(m.vmIops * between(rng, GEN.perfTargetOfRef), 1000) };
+    }
     targets.powerLimitW = Math.ceil(m.wallW * between(rng, GEN.powerLimitOfRef) / 50) * 50;
     if (client.priorities.noise > 0) targets.noiseLimitDBA = Math.ceil(m.dBA + between(rng, GEN.noiseLimitOverRefDB));
     targets.roomTempLimitC = Math.ceil((m.roomC + between(rng, GEN.tempLimitOverRefC)) * 2) / 2;
@@ -164,7 +185,7 @@ export function generateJob(catalog, opts = {}) {
   throw new Error(`No solvable ${tier} job found for seed ${seed} after ${GEN.maxTries} tries.`);
 }
 
-export function generateJobs(catalog, { seed = 1, count = 6, difficulty } = {}) {
+export function generateJobs(catalog, { seed = 1, count = 6, difficulty, level } = {}) {
   const idx = indexCatalog(catalog);
-  return Array.from({ length: count }, (_, i) => generateJob(catalog, { seed: seed * 1000 + i + 1, difficulty, idx }));
+  return Array.from({ length: count }, (_, i) => generateJob(catalog, { seed: seed * 1000 + i + 1, difficulty, idx, level }));
 }

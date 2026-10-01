@@ -11,15 +11,15 @@ const SEEDS = Array.from({ length: 45 }, (_, i) => i + 1);
 const jobs = SEEDS.map((seed) => generateJob(catalog, { seed, idx }));
 
 describe('job generator (stage 4)', () => {
-  it('rolls all three tiers and all three job types', () => {
+  it('rolls all three tiers and all four job types', () => {
     expect(new Set(jobs.map((j) => j.tier))).toEqual(new Set(['homelab', 'server', 'datacenter']));
-    expect(new Set(jobs.map((j) => j.type))).toEqual(new Set(['inference', 'game-server', 'mixed']));
+    expect(new Set(jobs.map((j) => j.type))).toEqual(new Set(['inference', 'game-server', 'mixed', 'cloud']));
   });
 
   it('every job has client, workloads, targets, budget, room and priorities', () => {
     for (const j of jobs) {
       expect(j.client.name).toBeTruthy();
-      expect(j.workload.inference || j.workload.gameServer).toBeTruthy();
+      expect(j.workload.inference || j.workload.gameServer || j.workload.cloud).toBeTruthy();
       expect(j.targets.powerLimitW).toBeGreaterThan(0);
       expect(j.targets.roomTempLimitC).toBeGreaterThan(j.room.ambientC - 1);
       expect(j.budgetUSD).toBeGreaterThan(0);

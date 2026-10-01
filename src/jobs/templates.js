@@ -19,16 +19,18 @@ function roughDcW(idx, gpus, cpu, cpuCount = 1) {
   return gpus.reduce((a, g) => a + idx.parts.get(g).boardPowerW, 0) + cpuCount * idx.parts.get(cpu).tdpW + 100;
 }
 
-function homelab(catalog, idx, needGpu) {
+function homelab(catalog, idx, needGpu, cloud) {
   const out = [];
   const gpus = byTier(catalog.parts.gpu, 'consumer');
   const gpuSets = needGpu ? gpus.flatMap((g) => [[g.id], [g.id, g.id]]) : [[]];
   const cpus = byTier(catalog.parts.cpu, 'consumer');
   const rams = catalog.parts.ram.filter((r) => r.tier === 'consumer');
-  for (const gs of gpuSets) for (const cpu of cpus) for (const ram of rams) {
+  // VM hosts need more RAM than one module: try 2 and 4 modules too.
+  const ramCounts = cloud ? [1, 2, 4] : [1];
+  for (const gs of gpuSets) for (const cpu of cpus) for (const ram of rams) for (const rc of ramCounts) {
     out.push({
       chassis: 'chs-hollow-quiet-xl', cpu: cpu.id, cooler: 'clr-frostline-d2',
-      gpus: gs.map((part) => ({ part })), ram: [{ part: ram.id, count: 1 }],
+      gpus: gs.map((part) => ({ part })), ram: [{ part: ram.id, count: rc }],
       storage: [{ part: 'sto-strata-nova-2', count: 1 }],
       psu: psuFor(catalog, 1.25 * roughDcW(idx, gs, cpu.id)), fans: [], network: [],
     });
@@ -72,8 +74,8 @@ function datacenter(catalog) {
 }
 
 // Candidate reference builds for a tier, cheapest first.
-export function referenceCandidates(catalog, idx, tier, needGpu) {
-  const list = tier === 'homelab' ? homelab(catalog, idx, needGpu)
+export function referenceCandidates(catalog, idx, tier, needGpu, cloud = false) {
+  const list = tier === 'homelab' ? homelab(catalog, idx, needGpu, cloud)
     : tier === 'server' ? server(catalog, idx, needGpu) : datacenter(catalog);
   return list.map((build) => ({ build, costUSD: buildCost(idx, build) })).sort((a, b) => a.costUSD - b.costUSD);
 }

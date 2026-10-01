@@ -88,3 +88,24 @@ The user chose "keep, log for sign-off" (2026-09-30, stage 4-5). These are game-
 - **`B-l40s-8bf16-pp`:** data outlier, reference-only.
 - **Fix method:** research + model fix. Added `prefillTokenLayerOverheadUs` (fitted) and made `stageHandoffUs` a fitted engine constant (was an assumed 30 us). To fit the handoff cost, Claude promoted the two 2-GPU XD rows (`B-3090x2-8b`, `B-4090x2-8b`) from check to fit, since no multi-GPU fit row existed. Flag it if you'd rather keep those held out. Details in `docs/calibration.md`.
 - **Result:** held-out median 11.4%, worst 50.7%, **PASS**.
+
+## 2026-10-01: stage 6-7 question round
+
+- **Stress test speed:** runs at 60x (one real minute per simulated hour) with live gauges (temperatures, watts, noise, throttling) and a Skip button that jumps to the result. A failure stops at its exact simulated time.
+- **Levels:** XP to reach level n = 250 x (n-1)^2 (L2 250, L3 1000, L4 2250, L5 4000). Gates: L1 homelab tier with inference and game-server jobs; L2 server tier; L3 mixed and cloud/VM jobs; L4 datacenter tier; L5 personal datacenter (stage 9). The browser and config apps are never gated; parts never are.
+- **Cloud/VM jobs:** VM fleet. The client asks for N VMs with vCPUs, RAM and disk each, a maximum vCPU overcommit ratio, and per-VM CPU and disk IOPS targets. RAM is never overcommitted (hard fail). Judged on those plus budget, power, noise and temperature.
+- **Config apps:** game server = view-distance, simulation-distance (3-32, default 10) and server software (vanilla / optimized fork). OS picker = compatibility only (vLLM and SGLang need Linux; VMs need the hypervisor OS). No OS speed modifier.
+- **After delivery:** already decided (stress test is final); not asked again.
+- **Names:** "real names if relatively safe, else fake; tell me which". Claude's call after reading both policies (docs/research/software.md): **Proxmox VE real** (referential use matches its trademark rules; "Proxmox Server Solutions" stays denied), **the block-building game stays fake** (Mojang's guidelines exclude commercial use for unrelated products), so its server fork is "Optimized fork" (PaperMC denied). Linux and Windows are plain OS names. Mojang added to the denylist.
+
+### Stage 6 values picked by Claude, pending sign-off
+Simplest reasonable values where the user's answers and the research left a number open:
+- Game server tick cost per player scales with the ticked area ((2 x simulation-distance + 1) / 21)^2; RAM per player with ((2 x view-distance + 1) / 21)^2 (`minecraft.tickScalesWithSimArea`, `ramScalesWithViewArea`, both exponent 1). No measurement of MSPT or RAM vs distance found. The existing per-player MSPT and base MSPT stay as they were (estimates, still the weakest part of the sim; no better data found).
+- Optimized fork tick cost x0.7 (`minecraft.optimizedForkTickFactor`). Meterstick and the fork's docs give no number.
+- Game-server clients ask for view and simulation distance of at least the published default 10 (`GAME_SERVER_DISTANCE` in src/jobs/generate.js).
+- CPU type "host" maps to the paper's tuned run (-2%), the default generic type to the untuned run (-17%) (`virt.cpuTypeHostIsTuned`). qcow2 gets 1/1.1 of raw IOPS (the wiki's "up to 10%" upper bound).
+- VM CPU share counts physical cores only (`virt.vcpuPerCore` 1); overcommit ratio counts host threads.
+- Cloud workloads (`WORKLOAD.*.vms` in src/jobs/generate.js): homelab 2-6 VMs, 2/4 vCPU, 4/8 GB, 32/64 GB disk; server 8-24 VMs, 2/4/8 vCPU, 8/16 GB, 64/128 GB disk; max overcommit 2 or 4. No datacenter-tier cloud jobs (the datacenter reference builds are GPU nodes).
+- Cloud clients: "Hobbyist tinkerer" and "Small law office" also take cloud jobs; new "Small VPS host" (server tier, performance 40 / budget 30 / noise 5 / power 15 / temperature 10).
+- VM targets: per-VM CPU and IOPS targets = reference result x `GEN.perfTargetOfRef` (same slack as inference), CPU rounded to 0.1 reference cores, IOPS to 1000.
+- On the hypervisor OS only VM hosting is simulated (inference or game servers there are a config error), since GPU passthrough inside VMs isn't modeled.

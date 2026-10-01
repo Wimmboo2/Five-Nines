@@ -9,7 +9,10 @@
 //
 // build:    { gpus: [{part}], cpu, cooler, ram: [{part,count}], storage: [{part,count}],
 //             psu, chassis, fans: [{part,count}], network: [{part}], nvlinkBridges }
-// software: { inference?: {...engine settings...}, gameServers?: [{ type: 'minecraft', players }] }
+// software: { os: 'linux' | 'windows' | 'proxmox',
+//   inference?: {...engine settings...},
+//   gameServers?: [{ type: 'minecraft', players, viewDistance, simulationDistance, software }],
+//   cloud?: { count, vcpus, ramGB, diskGB, maxOvercommit, cpuType, diskFormat } }
 // room:     see data-dev/rooms.js roomSchema
 
 import { indexCatalog, cpuCount, nodeOf } from './util.js';
@@ -21,6 +24,7 @@ import { solveTemps, roomSteadyC, perfForPower } from './thermal.js';
 import { noiseAtListener } from './noise.js';
 import { failureRates } from './durability.js';
 import { minecraftLoad } from './gameserver.js';
+import { vmFleet } from './vm.js';
 
 export function checkHardware(idx, build) {
   const errors = [];
@@ -153,7 +157,7 @@ export function operatingPoint(idx, build, room, roomC, work) {
 }
 
 // Workload description the thermal/power model needs.
-function workFrom(idx, build, infResult, mcResults) {
+function workFrom(idx, build, infResult, mcResults, cloud) {
   const active = build.gpus.map(() => false);
   let cpuLoad = 0;
   let batch = 1;
@@ -169,7 +173,8 @@ function workFrom(idx, build, infResult, mcResults) {
   }
   const cpu = build.cpu ? idx.parts.get(build.cpu) : null;
   for (const mc of mcResults) if (cpu) cpuLoad += mc.coreBusy / cpu.cores;
-  const anyWork = active.some(Boolean) || mcResults.length > 0;
+  if (cloud) cpuLoad += cloud.cpuLoad;
+  const anyWork = active.some(Boolean) || mcResults.length > 0 || !!cloud;
   return { gpuActive: active, batch, cpuLoad: Math.min(1, cpuLoad), storageBusy: anyWork ? idx.constants.power.storageBusyFraction : 0 };
 }
 
@@ -184,6 +189,18 @@ export function evaluateBuild(catalog, build0, software, room, opts = {}) {
     return { failures, warnings };
   }
   const build = { ...build0, gpus: assignLanes(idx, build0) };
+
+  // Operating system: decides only what software can run (published install
+  // requirements), never speed.
+  checkOs(idx, software, failures);
+
+  // Cloud / VM fleet on the hypervisor
+  let cloud = null;
+  if (software.cloud) {
+    const ram = systemRam(idx, build);
+    cloud = vmFleet(idx, build, software.cloud, ram.capacityBytes / idx.constants.memory.bytesPerMarketedGB);
+    cloud.errors.forEach((m) => failures.push({ code: m.includes('RAM') ? 'memory' : 'config', message: m }));
+  }
 
   // Game servers
   const mcResults = (software.gameServers ?? []).filter((g) => g.type === 'minecraft').map((g) => minecraftLoad(idx, build, g));
@@ -214,7 +231,7 @@ export function evaluateBuild(catalog, build0, software, room, opts = {}) {
   }
 
   // Power, temperature, noise at the room's steady state
-  const work = workFrom(idx, build, inference, mcResults);
+  const work = workFrom(idx, build, inference, mcResults, cloud);
   let roomC = room.ambientC;
   let op = null;
   for (let i = 0; i < 4; i++) {
@@ -276,6 +293,7 @@ export function evaluateBuild(catalog, build0, software, room, opts = {}) {
     memory: memory && summarizeMemory(memory),
     inference: infOut,
     gameServers: mcResults,
+    cloud,
     power: { dcW: op.power.dcW, wallW: op.power.wallW, psuEfficiency: op.power.efficiency, psuLoadPct: op.power.loadPct, byPart: op.power.byPart, psuModules: psuE?.modules ?? (psuE ? 1 : 0), psuSpareModules: psuSpare, pduCapacityW: pdu?.capacityW ?? null },
     thermal: {
       roomC, ambientC: room.ambientC, caseInletC: op.temps.inletC, caseAirflowCFM: op.temps.airflowCFM,
@@ -303,4 +321,22 @@ function summarizeMemory(m) {
     })),
     cpu: m.cpu,
   };
+}
+
+export const OSES = ['linux', 'windows', 'proxmox'];
+
+function checkOs(idx, software, failures) {
+  const workloads = !!software.inference || (software.gameServers ?? []).length > 0 || !!software.cloud;
+  if (!workloads) return;
+  const os = software.os;
+  if (!OSES.includes(os)) { failures.push({ code: 'config', message: 'No operating system selected.' }); return; }
+  const oc = idx.constants.osCompat;
+  const eng = software.inference?.engine;
+  if (os !== 'linux' && ((eng === 'eng-sluice' && oc.vllmLinuxOnly) || (eng === 'eng-loom' && oc.sglangLinuxOnly))) {
+    failures.push({ code: 'config', message: `${idx.engines.get(eng).displayName} runs on Linux only.` });
+  }
+  if (software.cloud && os !== 'proxmox') failures.push({ code: 'config', message: 'VMs need the hypervisor OS (Proxmox VE) on the host.' });
+  if (os === 'proxmox' && (software.inference || (software.gameServers ?? []).length)) {
+    failures.push({ code: 'config', message: 'On the hypervisor host only VM hosting is simulated; install Linux or Windows for inference and game servers.' });
+  }
 }

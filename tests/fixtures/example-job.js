@@ -34,6 +34,7 @@ export const exampleBuild = {
 };
 
 export const exampleSoftware = {
+  os: 'linux',
   inference: {
     engine: 'eng-kettle', model: 'mdl-quill-3-30b-a3b', quant: 'Q4_K_M', kvType: 'q8_0',
     contextLength: 262144, concurrency: 1, splitMode: 'none', gpuLayers: 'all',

@@ -3,6 +3,9 @@ import { dev } from '../scripts/dev-data.js';
 import { buildGameData, resolve } from '../src/data/build.js';
 import { indexCatalog } from '../src/sim/util.js';
 import { evaluateBuild, runStressTest } from '../src/sim/index.js';
+
+// The sim needs an OS pick; these tests are about hardware and inference, so Linux.
+const evalLinux = (cat, build, sw, room, opts) => evaluateBuild(cat, build, { os: 'linux', ...sw }, room, opts);
 import { buildLayout } from '../src/sim/layout.js';
 import { planMemory } from '../src/sim/memory.js';
 import { makeContext, decodeRate, groupLink } from '../src/sim/inference.js';
@@ -69,7 +72,7 @@ describe('KV cache and weight sizes', () => {
 describe('memory fit', () => {
   it('fails a build whose weights + KV cache do not fit, and says why', () => {
     const build = host('gpu-ember-g3-24');
-    const r = evaluateBuild(catalog, build, {
+    const r = evalLinux(catalog, build, {
       inference: { engine: 'eng-kettle', model: 'mdl-quill-3-32b', quant: 'Q4_K_M', kvType: 'f16', contextLength: 131072, concurrency: 1, splitMode: 'none' },
     }, smallClosedRoom);
     const mem = r.failures.filter((f) => f.code === 'memory');
@@ -80,7 +83,7 @@ describe('memory fit', () => {
 
   it('the same model fits with a shorter context', () => {
     const build = host('gpu-ember-g3-24');
-    const r = evaluateBuild(catalog, build, {
+    const r = evalLinux(catalog, build, {
       inference: { engine: 'eng-kettle', model: 'mdl-quill-3-32b', quant: 'Q4_K_M', kvType: 'f16', contextLength: 8192, concurrency: 1, splitMode: 'none' },
     }, smallClosedRoom);
     expect(r.failures.filter((f) => f.code === 'memory')).toEqual([]);
@@ -134,7 +137,7 @@ describe('every software setting changes at least one result', () => {
   const baseBuild = host('gpu-bastion-h80', 2, { nvlinkBridges: true });
   const base = { engine: 'eng-sluice', model: 'mdl-tamarin-31-8b', quant: 'BF16', kvType: 'auto', contextLength: 8192, concurrency: 1, tp: 1, pp: 1, gpus: [0] };
   const sig = (inf) => {
-    const r = evaluateBuild(catalog, baseBuild, { inference: inf }, smallClosedRoom);
+    const r = evalLinux(catalog, baseBuild, { inference: inf }, smallClosedRoom);
     return JSON.stringify({
       f: r.failures.map((x) => x.message),
       d: r.inference && r.inference.decodeAtWork.perSequence.toFixed(6),
@@ -180,14 +183,14 @@ describe('every software setting changes at least one result', () => {
   }
 
   it('rejects an engine/format combination the engine does not support', () => {
-    const r = evaluateBuild(catalog, baseBuild, { inference: { ...base, quant: 'Q4_K_M' } }, smallClosedRoom);
+    const r = evalLinux(catalog, baseBuild, { inference: { ...base, quant: 'Q4_K_M' } }, smallClosedRoom);
     expect(r.failures.some((f) => f.code === 'config' && /cannot load Q4_K_M/.test(f.message))).toBe(true);
   });
 });
 
 describe('room temperature over the stress hour', () => {
   const run = (build, software, room) => {
-    const r = evaluateBuild(catalog, build, software, room);
+    const r = evalLinux(catalog, build, software, room);
     expect(r.failures).toEqual([]);
     return runStressTest(r, room, { seed: 3, dtS: 30 });
   };
@@ -228,7 +231,7 @@ describe('power and noise sanity', () => {
 
   it('flags a PSU that is too small', () => {
     const build = { ...host('gpu-ember-g5-32', 2), psu: 'psu-voltaic-g650' };
-    const r = evaluateBuild(catalog, build, {
+    const r = evalLinux(catalog, build, {
       inference: { engine: 'eng-kettle', model: 'mdl-quill-3-32b', quant: 'Q4_K_M', kvType: 'f16', contextLength: 8192, concurrency: 16, splitMode: 'row' },
     }, smallClosedRoom);
     expect(r.failures.some((f) => f.code === 'power')).toBe(true);
@@ -242,15 +245,15 @@ describe('power and noise sanity', () => {
   });
 
   it('distance lowers the level by 20 log10(r)', () => {
-    const near = evaluateBuild(catalog, exampleBuild, exampleSoftware, smallClosedRoom);
-    const far = evaluateBuild(catalog, exampleBuild, exampleSoftware, { ...smallClosedRoom, listenerDistanceM: 4 });
+    const near = evalLinux(catalog, exampleBuild, exampleSoftware, smallClosedRoom);
+    const far = evalLinux(catalog, exampleBuild, exampleSoftware, { ...smallClosedRoom, listenerDistanceM: 4 });
     expect(far.noise.atListenerDBA).toBeCloseTo(near.noise.atListenerDBA - 20 * Math.log10(2), 6);
   });
 });
 
 describe('stress test', () => {
   it('stops at a forced part failure and reports the cause and time', () => {
-    const r = evaluateBuild(catalog, exampleBuild, exampleSoftware, smallClosedRoom);
+    const r = evalLinux(catalog, exampleBuild, exampleSoftware, smallClosedRoom);
     const s = runStressTest(r, smallClosedRoom, { seed: 1, forceFailure: { key: 'gpu:0', atS: 600 } });
     expect(s.completed).toBe(false);
     expect(s.failedAtS).toBe(600);
@@ -260,7 +263,7 @@ describe('stress test', () => {
   });
 
   it('is repeatable for the same seed', () => {
-    const r = evaluateBuild(catalog, exampleBuild, exampleSoftware, smallClosedRoom);
+    const r = evalLinux(catalog, exampleBuild, exampleSoftware, smallClosedRoom);
     const a = runStressTest(r, smallClosedRoom, { seed: 42, dtS: 60 });
     const b = runStressTest(r, smallClosedRoom, { seed: 42, dtS: 60 });
     expect(a).toEqual(b);
@@ -268,7 +271,7 @@ describe('stress test', () => {
 
   it('a build that cannot run does not start the test', () => {
     const build = host('gpu-ember-g3-24');
-    const r = evaluateBuild(catalog, build, {
+    const r = evalLinux(catalog, build, {
       inference: { engine: 'eng-kettle', model: 'mdl-quill-3-32b', quant: 'Q4_K_M', kvType: 'f16', contextLength: 131072, splitMode: 'none' },
     }, smallClosedRoom);
     const s = runStressTest(r, smallClosedRoom);
@@ -299,31 +302,31 @@ describe('datacenter nodes and 2026 model geometry (Part 0)', () => {
 
   it('a socketed module needs a matching node', () => {
     const inTower = { ...exampleBuild, gpus: [{ part: 'gpu-bastion-x141' }] };
-    expect(evaluateBuild(catalog, inTower, {}, smallClosedRoom).failures.some((f) => /socketed module/.test(f.message))).toBe(true);
-    const wrongGen = evaluateBuild(catalog, node('gpu-citadel-c180'), sw, room);
+    expect(evalLinux(catalog, inTower, {}, smallClosedRoom).failures.some((f) => /socketed module/.test(f.message))).toBe(true);
+    const wrongGen = evalLinux(catalog, node('gpu-citadel-c180'), sw, room);
     expect(wrongGen.failures.some((f) => /does not fit/.test(f.message))).toBe(true);
-    const ok = evaluateBuild(catalog, node('gpu-bastion-x141'), sw, room);
+    const ok = evalLinux(catalog, node('gpu-bastion-x141'), sw, room);
     expect(ok.failures).toEqual([]);
   });
 
   it('node TP runs over the switch fabric, not PCIe', () => {
-    const ok = evaluateBuild(catalog, node('gpu-bastion-x141'), sw, room);
+    const ok = evalLinux(catalog, node('gpu-bastion-x141'), sw, room);
     expect(groupLink(idx, ok._build, [0, 1, 2, 3, 4, 5, 6, 7]).type).toBe('nvswitch');
-    const mi = evaluateBuild(catalog, { ...node('gpu-tessera-t192'), chassis: 'node-loom-t8', psu: 'psu-voltaic-m3000t' }, sw, room);
+    const mi = evalLinux(catalog, { ...node('gpu-tessera-t192'), chassis: 'node-loom-t8', psu: 'psu-voltaic-m3000t' }, sw, room);
     expect(mi.failures).toEqual([]);
     expect(groupLink(idx, mi._build, [0, 1, 2, 3, 4, 5, 6, 7]).type).toBe('mesh');
   });
 
   it('PSU modules share the load and report redundancy; too few modules fail', () => {
-    const ok = evaluateBuild(catalog, node('gpu-bastion-x141'), sw, room);
+    const ok = evalLinux(catalog, node('gpu-bastion-x141'), sw, room);
     expect(ok.power.psuModules).toBe(6);
     expect(ok.power.psuSpareModules).toBeGreaterThan(0);
-    const one = evaluateBuild(catalog, node('gpu-bastion-x141', { psuCount: 1 }), sw, room);
+    const one = evalLinux(catalog, node('gpu-bastion-x141', { psuCount: 1 }), sw, room);
     expect(one.failures.some((f) => f.code === 'power')).toBe(true);
   });
 
   it('a PDU caps wall power', () => {
-    const r = evaluateBuild(catalog, node('gpu-bastion-x141', { pdu: 'pdu-conduit-17k' }), sw, room);
+    const r = evalLinux(catalog, node('gpu-bastion-x141', { pdu: 'pdu-conduit-17k' }), sw, room);
     expect(r.power.pduCapacityW).toBe(17200);
     expect(r.failures.filter((f) => f.code === 'power')).toEqual([]);
   });
