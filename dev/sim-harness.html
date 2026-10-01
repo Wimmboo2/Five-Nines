@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sim Harness</title>
+    <style>
+      body { font-family: ui-monospace, monospace; margin: 16px; background: #fff; color: #111; }
+      h1 { font-size: 18px; }
+      pre { background: #f4f4f4; padding: 12px; overflow-x: auto; font-size: 12px; }
+      .bad { color: #b00; } .ok { color: #070; }
+    </style>
+  </head>
+  <body>
+    <h1>Five Nines sim harness (dev only, not part of the game)</h1>
+    <p>Evaluates a hand-written build against a hand-written copy of the brief's example job. This is not the job generator.</p>
+    <div id="out">running...</div>
+    <script type="module" src="./sim-harness.js"></script>
+  </body>
+</html>

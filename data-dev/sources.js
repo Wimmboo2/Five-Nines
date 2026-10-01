@@ -1,0 +1,158 @@
+// Source registry. Dev-only: titles and URLs contain real product names.
+// `kind` becomes the generic label shown in the game (see SOURCE_LABELS).
+// All accessed 2026-09-30 unless noted.
+
+export const SOURCE_LABELS = {
+  'spec-sheet': 'Manufacturer spec sheet',
+  review: 'Independent review measurement',
+  benchmark: 'Published benchmark',
+  reference: 'Engineering reference',
+  docs: 'Software documentation',
+  dataset: 'Published field data',
+  paper: 'Published research',
+  price: 'Market price (Sep 2026)',
+  community: 'Community measurement',
+};
+
+const A = '2026-09-30';
+
+export const sources = [
+  // GPU architecture whitepapers and product pages
+  { id: 'nv-ga102-wp', kind: 'spec-sheet', title: 'NVIDIA Ampere GA102 GPU Architecture Whitepaper V1', url: 'https://images.nvidia.com/aem-dam/en-zz/Solutions/geforce/ampere/pdf/NVIDIA-ampere-GA102-GPU-Architecture-Whitepaper-V1.pdf', accessed: A },
+  { id: 'nv-ada-wp', kind: 'spec-sheet', title: 'NVIDIA Ada GPU Architecture whitepaper', url: 'https://images.nvidia.com/aem-dam/Solutions/geforce/ada/nvidia-ada-gpu-architecture.pdf', accessed: A },
+  { id: 'nv-bw-wp', kind: 'spec-sheet', title: 'NVIDIA RTX Blackwell GPU Architecture', url: 'https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf', accessed: A },
+  { id: 'nv-bwpro-wp', kind: 'spec-sheet', title: 'NVIDIA RTX Blackwell PRO GPU Architecture v1.1', url: 'https://www.nvidia.com/content/dam/en-zz/Solutions/design-visualization/quadro-product-literature/pdf/NVIDIA-RTX-Blackwell-PRO-GPU-Architecture-v1_1.pdf', accessed: A, note: 'Appendix A columns: RTX A6000, RTX 6000 Ada, RTX PRO 6000 Max-Q (300 W), RTX PRO 6000 (600 W)' },
+  { id: 'nv-a100-page', kind: 'spec-sheet', title: 'NVIDIA A100 Tensor Core GPU product page', url: 'https://www.nvidia.com/en-us/data-center/a100/', accessed: A },
+  { id: 'nv-h100-page', kind: 'spec-sheet', title: 'NVIDIA H100 product page (SXM and NVL)', url: 'https://www.nvidia.com/en-us/data-center/h100/', accessed: A },
+  { id: 'nv-l40s-page', kind: 'spec-sheet', title: 'NVIDIA L40S product page', url: 'https://www.nvidia.com/en-us/data-center/l40s/', accessed: A },
+  { id: 'nv-a6000-page', kind: 'spec-sheet', title: 'NVIDIA RTX A6000 product page', url: 'https://www.nvidia.com/en-us/products/workstations/rtx-a6000/', accessed: A },
+  { id: 'nv-pro6000-page', kind: 'spec-sheet', title: 'NVIDIA RTX PRO 6000 Blackwell Workstation Edition page', url: 'https://www.nvidia.com/en-us/products/workstations/professional-desktop-gpus/rtx-pro-6000/', accessed: A },
+  { id: 'nv-4090-page', kind: 'spec-sheet', title: 'NVIDIA GeForce RTX 4090 product page (full specs)', url: 'https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4090/', accessed: A },
+  { id: 'nv-5090-page', kind: 'spec-sheet', title: 'NVIDIA GeForce RTX 5090 product page (full specs)', url: 'https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/', accessed: A },
+  { id: 'nv-3090-page', kind: 'spec-sheet', title: 'NVIDIA GeForce RTX 3090 product page (full specs)', url: 'https://www.nvidia.com/en-us/geforce/graphics-cards/30-series/rtx-3090-3090ti/', accessed: A },
+  { id: 'wiki-geforce30', kind: 'reference', title: 'Wikipedia: GeForce RTX 30 series (spec table)', url: 'https://en.wikipedia.org/wiki/GeForce_RTX_30_series', accessed: A },
+  { id: 'wiki-geforce40', kind: 'reference', title: 'Wikipedia: GeForce RTX 40 series (spec table)', url: 'https://en.wikipedia.org/wiki/GeForce_RTX_40_series', accessed: A },
+  { id: 'wiki-geforce50', kind: 'reference', title: 'Wikipedia: GeForce RTX 50 series (spec table)', url: 'https://en.wikipedia.org/wiki/GeForce_RTX_50_series', accessed: A },
+  { id: 'wiki-quadro', kind: 'reference', title: 'Wikipedia: Nvidia Quadro (RTX A-series table)', url: 'https://en.wikipedia.org/wiki/Nvidia_Quadro', accessed: A },
+  { id: 'wiki-nv-dc', kind: 'reference', title: 'Wikipedia: Nvidia Tesla / data center GPU table (clocks)', url: 'https://en.wikipedia.org/wiki/Nvidia_Tesla', accessed: A },
+
+  { id: 'nv-h200-page', kind: 'spec-sheet', title: 'NVIDIA H200 product page (SXM and NVL)', url: 'https://www.nvidia.com/en-us/data-center/h200/', accessed: A },
+  { id: 'nv-hgx-page', kind: 'spec-sheet', title: 'NVIDIA HGX platform page (HGX B300 / B200 spec table)', url: 'https://www.nvidia.com/en-us/data-center/hgx/', accessed: A, note: 'FP16/BF16 36 PFLOPS per 8 GPUs, footnote "Dense is 1/2 sparse spec shown"; NVLink 1.8 TB/s per GPU' },
+  { id: 'nv-dgxa100-docs', kind: 'spec-sheet', title: 'NVIDIA DGX A100 user guide: introduction (hardware specs)', url: 'https://docs.nvidia.com/dgx/dgxa100-user-guide/introduction-to-dgxa100.html', accessed: A },
+  { id: 'nv-dgxh100-docs', kind: 'spec-sheet', title: 'NVIDIA DGX H100/H200 user guide: introduction (hardware specs)', url: 'https://docs.nvidia.com/dgx/dgxh100-user-guide/introduction-to-dgxh100.html', accessed: A },
+  { id: 'nv-dgxb200-docs', kind: 'spec-sheet', title: 'NVIDIA DGX B200 user guide: introduction (hardware specs)', url: 'https://docs.nvidia.com/dgx/dgxb200-user-guide/introduction-to-dgxb200.html', accessed: A },
+  { id: 'nv-dgxb300-docs', kind: 'spec-sheet', title: 'NVIDIA DGX B300 user guide: introduction (hardware specs)', url: 'https://docs.nvidia.com/dgx/dgxb300-user-guide/introduction-to-dgxb300.html', accessed: A },
+  { id: 'wiki-amd-instinct', kind: 'reference', title: 'Wikipedia: AMD Instinct (CDNA spec tables)', url: 'https://en.wikipedia.org/wiki/AMD_Instinct', accessed: A },
+  { id: 'smc-as8125', kind: 'spec-sheet', title: 'Supermicro AS-8125GS-TNMR2 (8x MI300X) product page', url: 'https://www.supermicro.com/en/products/system/gpu/8u/as-8125gs-tnmr2', accessed: A },
+  { id: 'smc-a126', kind: 'spec-sheet', title: 'Supermicro AS-A126GS-TNMR (8x MI355X) product page', url: 'https://www.supermicro.com/en/products/system/gpu/10u/as-a126gs-tnmr', accessed: A },
+  { id: 'price-il-dc', kind: 'price', title: 'IntuitionLabs: Data center GPU prices (published 2026-09-05)', url: 'https://intuitionlabs.ai/articles/data-center-gpu-prices', accessed: A },
+  { id: 'nv-sn4000-docs', kind: 'spec-sheet', title: 'NVIDIA Spectrum-3 SN4000 hardware user manual: specifications (SN4700, SN4600C)', url: 'https://networking-docs.nvidia.com/sn4000hw/specifications', accessed: A },
+  { id: 'dell-qm9700', kind: 'spec-sheet', title: 'NVIDIA Quantum-2 QM9700 series datasheet (Dell, German)', url: 'https://www.delltechnologies.com/asset/de-at/products/networking/technical-support/nvidia-quantum-2-qm9700-series-datasheet.pdf', accessed: A },
+  { id: 'dell-sn5600', kind: 'spec-sheet', title: 'NVIDIA Spectrum SN5600 series datasheet (Dell, German)', url: 'https://www.delltechnologies.com/asset/de-at/products/networking/technical-support/nvidia-spectrum-sn5600-datasheet.pdf', accessed: A },
+  { id: 'scan-ap8886', kind: 'price', title: 'Scan UK: APC NetShelter AP8886 metered rack PDU listing (specs and price)', url: 'https://www.scan.co.uk/products/42-socket-apc-netshelter-ap8886-metered-rack-pdu-0u-vertical-3-phase-22kw-32a-173kw-24a-42', accessed: A },
+
+  // GPU prices
+  { id: 'price-gp-3060', kind: 'price', title: 'gpupoet: RTX 3060 price, September 2026 (lowest average price)', url: 'https://gpupoet.com/gpu/learn/price/september-2026/nvidia-geforce-rtx-3060', accessed: A },
+  { id: 'price-gp-3090', kind: 'price', title: 'gpupoet: RTX 3090 price, September 2026 (lowest average price)', url: 'https://gpupoet.com/gpu/learn/price/september-2026/nvidia-geforce-rtx-3090', accessed: A },
+  { id: 'price-gp-4090', kind: 'price', title: 'gpupoet: RTX 4090 price, September 2026 (lowest average price)', url: 'https://gpupoet.com/gpu/learn/price/september-2026/nvidia-geforce-rtx-4090', accessed: A },
+  { id: 'price-gp-5090', kind: 'price', title: 'gpupoet: RTX 5090 price, September 2026 (lowest average price)', url: 'https://gpupoet.com/gpu/learn/price/september-2026/nvidia-geforce-rtx-5090', accessed: A },
+  { id: 'price-thunder-pro6000', kind: 'price', title: 'Thunder Compute: RTX PRO 6000 Blackwell pricing (reviewed 2026-09-25)', url: 'https://www.thundercompute.com/blog/nvidia-rtx-pro-6000-pricing', accessed: A },
+  { id: 'price-pcsp-2026', kind: 'price', title: 'PC Server and Parts: Used GPU server buying guide 2026', url: 'https://pcserverandparts.com/news/used-gpu-server-buying-guide-2026-l40s-vs-a100-vs-rtx-4090/', accessed: A },
+  { id: 'price-jarvis-a100', kind: 'price', title: 'JarvisLabs: A100 price in 2026 (verified March 2026)', url: 'https://jarvislabs.ai/blog/a100-price', accessed: A },
+  { id: 'price-cloudzero-h100', kind: 'price', title: 'CloudZero: H100 price in 2026 (updated 2026-08-24)', url: 'https://www.cloudzero.com/blog/h100-gpu-cost/', accessed: A },
+  { id: 'price-cx-h100', kind: 'price', title: 'compute.exchange: H100 price 2026 (2026-04-24)', url: 'https://compute.exchange/blogs/h100-gpu-price-2026', accessed: A },
+
+  // CPUs
+  { id: 'wiki-ryzen-list', kind: 'reference', title: 'Wikipedia: List of AMD Ryzen processors (Granite Ridge)', url: 'https://en.wikipedia.org/wiki/List_of_AMD_Ryzen_processors', accessed: A },
+  { id: 'wiki-epyc', kind: 'reference', title: 'Wikipedia: Epyc (Rome and Turin tables)', url: 'https://en.wikipedia.org/wiki/Epyc', accessed: A },
+  { id: 'wiki-threadripper', kind: 'reference', title: 'Wikipedia: Threadripper (Shimada Peak)', url: 'https://en.wikipedia.org/wiki/Threadripper', accessed: A },
+  { id: 'wiki-zen3', kind: 'reference', title: 'Wikipedia: Zen 3 ("19% higher IPC ... than Zen 2", per AMD)', url: 'https://en.wikipedia.org/wiki/Zen_3', accessed: A },
+  { id: 'wiki-zen4', kind: 'reference', title: 'Wikipedia: Zen 4 ("~13% IPC increase on average")', url: 'https://en.wikipedia.org/wiki/Zen_4', accessed: A },
+  { id: 'reg-zen5', kind: 'reference', title: 'The Register 2024-07-15: AMD claims 16% IPC uplift for Zen 5', url: 'https://www.theregister.com/2024/07/15/amd_spills_the_beans_on/', accessed: A },
+  { id: 'price-itc-7532', kind: 'price', title: 'IT Creations: EPYC 7532 new bulk', url: 'https://www.itcreations.com/product/120967', accessed: A },
+
+  // RAM
+  { id: 'price-cc-ddr5', kind: 'price', title: 'Capital and Compute: DDR5 price tracker (updated 2026-09-26)', url: 'https://capitalandcompute.net/memory-prices/ddr5/', accessed: A },
+  { id: 'price-dcd-ddr5-64', kind: 'price', title: 'datacenterdisk: 64GB DDR5 ECC RDIMM prices (2026-09-30)', url: 'https://datacenterdisk.com/server-ram/ddr5/64gb', accessed: A },
+  { id: 'price-dcd-ddr5-32', kind: 'price', title: 'datacenterdisk: 32GB DDR5 ECC RDIMM prices (2026-09-30)', url: 'https://datacenterdisk.com/server-ram/ddr5/32gb', accessed: A },
+  { id: 'price-dcd-ddr4-32', kind: 'price', title: 'datacenterdisk: 32GB DDR4 ECC RDIMM prices (2026-09-30)', url: 'https://datacenterdisk.com/server-ram/ddr4/32gb', accessed: A },
+
+  // Storage
+  { id: 'ds-990pro', kind: 'spec-sheet', title: 'Samsung NVMe SSD 990 PRO Data Sheet Rev 1.0', url: 'https://download.semiconductor.samsung.com/resources/data-sheet/Samsung_NVMe_SSD_990_PRO_Datasheet_Rev.1.0_10129514072296.pdf', accessed: A },
+  { id: 'ds-micron7450', kind: 'spec-sheet', title: 'Micron 7450 SSD product brief', url: 'https://docs.rs-online.com/1087/A700000009680897.pdf', accessed: A },
+  { id: 'ds-exosx24', kind: 'spec-sheet', title: 'Seagate Exos X24 data sheet', url: 'https://www.comx-computers.co.za/download/seagate/270621_PDF1.pdf', accessed: A },
+  { id: 'ds-wdredplus', kind: 'spec-sheet', title: 'WD Red Plus product brief (Sept 2025)', url: 'https://www.farnell.com/datasheets/4794666.pdf', accessed: A },
+  { id: 'price-mmb-990pro', kind: 'price', title: 'maxmybuild: Samsung 990 PRO 2TB prices', url: 'https://www.maxmybuild.com/storage/nvme-ssds/samsung-990-pro/2tb', accessed: A },
+  { id: 'price-mmb-wdred8', kind: 'price', title: 'maxmybuild: WD Red Plus 8TB prices', url: 'https://www.maxmybuild.com/storage/hard-drives/wd-red-plus/8tb', accessed: A },
+  { id: 'price-dcd-7450', kind: 'price', title: 'datacenterdisk: Micron 7450 PRO 3.84TB U.3 (refurbished alternative listed)', url: 'https://datacenterdisk.com/drives/micron-3-84tb-nvme-gen4-vfb8', accessed: A },
+  { id: 'price-diskprices-exos', kind: 'price', title: 'diskprices.com: Exos X24 24TB renewed listing', url: 'https://diskprices.com/?locale=us&condition=new&capacity=8-30&disk_types=internal_hdd', accessed: A },
+
+  // Power, cooling, network, chassis
+  { id: 'wiki-80plus', kind: 'reference', title: 'Wikipedia: 80 Plus (efficiency requirement tables)', url: 'https://en.wikipedia.org/wiki/80_Plus', accessed: A },
+  { id: 'arctic-p12pst', kind: 'spec-sheet', title: 'ARCTIC P12 PWM PST specifications', url: 'https://www.arctic.de/en/P12-PWM-PST/ACFAN00120A', accessed: A },
+  { id: 'arctic-p12max', kind: 'spec-sheet', title: 'ARCTIC P12 Max specifications', url: 'https://www.arctic.de/en/P12-Max/ACFAN00280A', accessed: A },
+  { id: 'arctic-mttf-p9max', kind: 'spec-sheet', title: 'ARCTIC MTTF report, P9 Max (2025-01-27)', url: 'https://support.arctic.de/products/p9-max/techdocs/MTTF%20Report,%20P9%20Max%20(2025-01-27).pdf', accessed: A },
+  { id: 'gn-nhd15g2', kind: 'review', title: 'GamersNexus: Noctua NH-D15 G2 review & benchmarks', url: 'https://gamersnexus.net/coolers/noctua-nh-d15-g2-review-benchmarks-hbc-lbc-comparison-best-cpu-coolers', accessed: A },
+  { id: 'mikrotik-crs309', kind: 'spec-sheet', title: 'MikroTik CRS309-1G-8S+IN', url: 'https://mikrotik.com/product/crs309_1g_8s_in', accessed: A },
+  { id: 'mikrotik-crs310', kind: 'spec-sheet', title: 'MikroTik CRS310-8G+2S+IN', url: 'https://mikrotik.com/product/crs310_8g_2s_in', accessed: A },
+  { id: 'mikrotik-crs326', kind: 'spec-sheet', title: 'MikroTik CRS326-24S+2Q+RM', url: 'https://mikrotik.com/product/crs326_24s_2q_rm', accessed: A },
+  { id: 'mikrotik-crs504', kind: 'spec-sheet', title: 'MikroTik CRS504-4XQ-IN', url: 'https://mikrotik.com/product/crs504_4xq_in', accessed: A },
+  { id: 'fractal-define7xl', kind: 'spec-sheet', title: 'Fractal Design Define 7 XL specifications', url: 'https://www.fractal-design.com/products/cases/define/define-7-xl/black-solid/', accessed: A },
+  { id: 'fractal-torrent', kind: 'spec-sheet', title: 'Fractal Design Torrent specifications', url: 'https://www.fractal-design.com/products/cases/torrent/torrent/black-solid/', accessed: A },
+  { id: 'sliger-cx4712', kind: 'spec-sheet', title: 'Sliger CX4712 4U chassis', url: 'https://www.sliger.com/products/rackmount/storage/cx4712/', accessed: A },
+  { id: 'apc-ar3100', kind: 'spec-sheet', title: 'APC NetShelter SX AR3100 42U', url: 'https://www.se.com/us/en/product/AR3100/netshelter-sx-server-rack-enclosure-42u-600mm-wide-x-1070mm-deep-with-sides-black-3000-lbs/', accessed: A },
+
+  // Software and models
+  { id: 'lcpp-server-readme', kind: 'docs', title: 'llama.cpp tools/server/README.md (master)', url: 'https://raw.githubusercontent.com/ggml-org/llama.cpp/master/tools/server/README.md', accessed: A },
+  { id: 'ggml-common-h', kind: 'docs', title: 'ggml/src/ggml-common.h (block struct sizes)', url: 'https://raw.githubusercontent.com/ggml-org/llama.cpp/master/ggml/src/ggml-common.h', accessed: A },
+  { id: 'vllm-engine-args', kind: 'docs', title: 'vLLM engine arguments', url: 'https://docs.vllm.ai/en/latest/configuration/engine_args.html', accessed: A },
+  { id: 'vllm-src-cache', kind: 'docs', title: 'vLLM vllm/config/cache.py (gpu_memory_utilization default 0.92, cache_dtype)', url: 'https://raw.githubusercontent.com/vllm-project/vllm/main/vllm/config/cache.py', accessed: A },
+  { id: 'vllm-src-offload', kind: 'docs', title: 'vLLM vllm/config/offload.py (cpu_offload_gb semantics)', url: 'https://raw.githubusercontent.com/vllm-project/vllm/main/vllm/config/offload.py', accessed: A },
+  { id: 'sglang-server-args', kind: 'docs', title: 'SGLang server arguments', url: 'https://docs.sglang.io/advanced_features/server_arguments.html', accessed: A },
+  { id: 'hf-configs', kind: 'docs', title: 'Hugging Face config.json and API safetensors parameter counts for each model repo', url: 'https://huggingface.co/api/models/', accessed: A, note: 'Qwen/Qwen3-32B, Qwen/Qwen3-8B, Qwen/Qwen3-30B-A3B-Instruct-2507, Qwen/Qwen2.5-7B-Instruct, Qwen/Qwen2.5-32B-Instruct, unsloth/Llama-3.3-70B-Instruct, unsloth/Meta-Llama-3.1-8B-Instruct, NousResearch/Llama-2-7b-hf, openai/gpt-oss-20b, openai/gpt-oss-120b, mistralai/Mistral-Small-3.2-24B-Instruct-2506' },
+  { id: 'hf-cards', kind: 'docs', title: 'Hugging Face model cards (active params, native context)', url: 'https://huggingface.co/', accessed: A, note: 'Qwen3-32B/8B cards: 32,768 native, 131,072 with YaRN. Qwen3-30B-A3B-2507: 3.3B activated, 262,144 native. gpt-oss: 117B/5.1B active, 21B/3.6B active.' },
+  { id: 'hf-configs-2026', kind: 'docs', title: 'Hugging Face config.json and API parameter counts, models added 2026-09-30', url: 'https://huggingface.co/api/models/', accessed: A, note: 'Qwen/Qwen3-0.6B, openbmb/MiniCPM5-2B, unsloth/Llama-3.2-3B-Instruct, Qwen/Qwen3-4B-Instruct-2507, mistralai/Ministral-3-8B-Instruct-2512, Qwen/Qwen3-14B, microsoft/phi-4, mistralai/Ministral-3-14B-Instruct-2512, Qwen/Qwen3.8-27B, Qwen/Qwen3.6-35B-A3B, google/gemma-4-31B-it, google/gemma-4-26B-A4B-it, zai-org/GLM-4.7-Flash, zai-org/GLM-4.5-Air, unsloth/Llama-4-Scout-17B-16E-Instruct, Qwen/Qwen3.5-122B-A10B, MiniMaxAI/MiniMax-M2.7, deepseek-ai/DeepSeek-V3.2, zai-org/GLM-5.3' },
+  { id: 'hf-files-2026', kind: 'docs', title: 'Hugging Face repo file listings (GGUF and safetensors sizes in bytes), models added 2026-09-30', url: 'https://huggingface.co/api/models/', accessed: A, note: 'unsloth/*-GGUF, bartowski/Llama-3.2-3B-Instruct-GGUF, bartowski/phi-4-GGUF, openbmb/MiniCPM5-2B-GGUF; original safetensors repos for FP8 models' },
+  { id: 'hf-files', kind: 'docs', title: 'Hugging Face repo file listings (GGUF/AWQ/FP8 file sizes in bytes)', url: 'https://huggingface.co/api/models/', accessed: A, note: 'bartowski, unsloth, ggml-org, TheBloke GGUF repos; Qwen, hugging-quants, RedHatAI, casperhansen AWQ/FP8 repos' },
+
+  // Benchmarks
+  { id: 'bench-lcpp-cuda', kind: 'benchmark', title: 'llama.cpp discussion #15013: Performance of llama.cpp on Nvidia CUDA (scoreboard)', url: 'https://github.com/ggml-org/llama.cpp/discussions/15013', accessed: A },
+  { id: 'bench-xd', kind: 'benchmark', title: 'XiongjieDai/GPU-Benchmarks-on-LLM-Inference README', url: 'https://raw.githubusercontent.com/XiongjieDai/GPU-Benchmarks-on-LLM-Inference/main/README.md', accessed: A },
+  { id: 'bench-lcpp-gptoss', kind: 'benchmark', title: 'llama.cpp discussion #15396: guide, running gpt-oss with llama.cpp', url: 'https://github.com/ggml-org/llama.cpp/discussions/15396', accessed: A },
+  { id: 'bench-cfg', kind: 'benchmark', title: 'computingforgeeks: Ollama vs vLLM vs llama.cpp speed benchmarked', url: 'https://computingforgeeks.com/ollama-vs-vllm-vs-llama-cpp/', accessed: A },
+  { id: 'bench-arxiv-char', kind: 'paper', title: 'arXiv 2512.01644: A Systematic Characterization of LLM Inference on GPUs', url: 'https://arxiv.org/html/2512.01644', accessed: A },
+  { id: 'bench-arxiv-a5000', kind: 'paper', title: 'arXiv 2607.11368: Decomposing runtime, kernel and quantization speedups on four RTX A5000 GPUs (Table 8)', url: 'https://arxiv.org/html/2607.11368', accessed: A },
+  { id: 'bench-dbm-tp', kind: 'benchmark', title: 'Database Mart: vLLM distributed inference optimization guide (1x vs 2x RTX 4090, TP)', url: 'https://www.databasemart.com/blog/vllm-distributed-inference-optimization-guide', accessed: A },
+  { id: 'bench-localllm-96', kind: 'benchmark', title: 'localllm.in: Best local LLMs for 96GB VRAM (RTX PRO 6000, llama.cpp)', url: 'https://localllm.in/blog/best-local-llms-96gb-vram', accessed: A },
+
+  // Physics, failure, workloads
+  { id: 'etb-cp-air', kind: 'reference', title: 'Engineering ToolBox: air specific heat capacity', url: 'https://www.engineeringtoolbox.com/air-specific-heat-capacity-d_705.html', accessed: A },
+  { id: 'etb-air-density', kind: 'reference', title: 'Engineering ToolBox: air density and specific weight', url: 'https://www.engineeringtoolbox.com/air-density-specific-weight-d_600.html', accessed: A },
+  { id: 'etb-fan-affinity', kind: 'reference', title: 'Engineering ToolBox: fan affinity laws', url: 'https://www.engineeringtoolbox.com/fan-affinity-laws-d_196.html', accessed: A },
+  { id: 'etb-adding-db', kind: 'reference', title: 'Engineering ToolBox: adding decibels', url: 'https://www.engineeringtoolbox.com/adding-decibel-d_63.html', accessed: A },
+  { id: 'etb-ach', kind: 'reference', title: 'Engineering ToolBox: air change rates for rooms', url: 'https://www.engineeringtoolbox.com/air-change-rate-room-d_867.html', accessed: A },
+  { id: 'bb-q1-2026', kind: 'dataset', title: 'Backblaze drive stats for Q1 2026', url: 'https://www.backblaze.com/blog/Backblaze-drive-stats-for-q1-2026/', accessed: A },
+  { id: 'arxiv-llama3', kind: 'paper', title: 'arXiv 2407.21783: The Llama 3 Herd of Models (reliability section)', url: 'https://arxiv.org/html/2407.21783', accessed: A },
+  { id: 'arrhenius-calc', kind: 'reference', title: 'Firgelli: accelerated life test Arrhenius calculator (formula, k, 0.7 eV)', url: 'https://www.firgelliauto.com/blogs/calculators/accelerated-life-test-arrhenius-calculator', accessed: A },
+  { id: 'mc-wiki-tick', kind: 'docs', title: 'Minecraft Wiki: Tick', url: 'https://minecraft.wiki/w/Tick', accessed: A },
+  { id: 'mc-wiki-req', kind: 'docs', title: 'Minecraft Wiki: Server/Requirements', url: 'https://minecraft.wiki/w/Server/Requirements', accessed: A },
+  { id: 'pve-qemu', kind: 'docs', title: 'Proxmox VE wiki: Qemu/KVM Virtual Machines', url: 'https://pve.proxmox.com/wiki/Qemu/KVM_Virtual_Machines', accessed: A },
+  // Stage 6 (software layer). Accessed 2026-09-30.
+  { id: 'ibm-kvm-2014', kind: 'paper', title: 'Felter et al., IBM Research RC25482 (2014): An Updated Performance Comparison of Virtual Machines and Linux Containers', url: 'https://www.read.seas.harvard.edu/~kohler/class/cs260r-s19/containerperf14.pdf', accessed: A },
+  { id: 'meterstick', kind: 'paper', title: 'Eickhoff et al., Meterstick: Benchmarking Performance Variability in Cloud and Self-hosted Minecraft-like Games (arXiv 2112.06963, ICPE 2023)', url: 'https://arxiv.org/abs/2112.06963', accessed: A },
+  { id: 'mc-wiki-props', kind: 'docs', title: 'Minecraft Wiki: server.properties', url: 'https://minecraft.wiki/w/Server.properties', accessed: A },
+  { id: 'paper-docs', kind: 'docs', title: 'PaperMC documentation: Paper', url: 'https://docs.papermc.io/paper/', accessed: A },
+  { id: 'vllm-install', kind: 'docs', title: 'vLLM docs: GPU installation (requirements)', url: 'https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html', accessed: A },
+  { id: 'vllm-args', kind: 'docs', title: 'vLLM docs: engine arguments', url: 'https://docs.vllm.ai/en/latest/configuration/engine_args.html', accessed: A },
+  { id: 'sglang-install', kind: 'docs', title: 'SGLang docs: install', url: 'https://docs.sglang.io/get_started/install.html', accessed: A },
+  { id: 'sglang-args', kind: 'docs', title: 'SGLang docs: server arguments', url: 'https://docs.sglang.io/advanced_features/server_arguments.html', accessed: A },
+  { id: 'lcpp-server', kind: 'docs', title: 'llama.cpp tools/server README (flags)', url: 'https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md', accessed: A },
+  { id: 'lcpp-quantize', kind: 'docs', title: 'llama.cpp tools/quantize README', url: 'https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md', accessed: A },
+  { id: 'pve-sysreq', kind: 'docs', title: 'Proxmox VE wiki: System Requirements', url: 'https://pve.proxmox.com/wiki/System_Requirements', accessed: A },
+  { id: 'pve-media-kit', kind: 'reference', title: 'Proxmox media kit (trademark use rules)', url: 'https://proxmox.com/en/about/company-details/media-kit', accessed: A },
+  { id: 'ups-1500-ipsd', kind: 'reference', title: 'IP Security Depot: APC Smart-UPS SMT1500RM2UC listing (1000 W / 1440 VA; 25.8 min at 500 W, 7.2 min at 1000 W)', url: 'https://www.ipsecuritydepot.com/apc-smart-ups-1500va-lcd-rm-2u-120v-us/smt1500rm2ucus/', accessed: '2026-10-01' },
+  { id: 'eia-outages-2024', kind: 'reference', title: 'EIA Today in Energy (2025-12-01): Hurricanes in 2024 led to the most hours without power in the United States in 10 years', url: 'https://www.eia.gov/todayinenergy/detail.php?id=66744', accessed: '2026-10-01' },
+  { id: 'pve-vzdump', kind: 'docs', title: 'Proxmox VE docs: Backup and Restore (vzdump)', url: 'https://pve.proxmox.com/pve-docs/chapter-vzdump.html', accessed: '2026-10-01' },
+  { id: 'b2-pricing', kind: 'reference', title: 'Backblaze B2 Cloud Storage pricing', url: 'https://www.backblaze.com/cloud-storage/pricing', accessed: '2026-10-01' },
+  { id: 'lcpp-mmq-commit', kind: 'reference', title: 'llama.cpp git history: commit a818f3028 (PR #8075) and ggml-cuda.cu at 8f7080bf4', url: 'https://github.com/ggml-org/llama.cpp/pull/8075', accessed: A },
+];
