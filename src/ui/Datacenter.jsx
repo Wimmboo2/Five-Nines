@@ -114,6 +114,7 @@ export function Datacenter({ catalog, idx, dc, money, level, paused, onOpen, onB
         <div><span className="muted">Reputation</span><b data-testid="dc-rep">{num(dc.reputation, 1)} / 100</b></div>
         <div><span className="muted">Customers</span><b data-testid="dc-customers">{dc.customers.length}</b></div>
         <div><span className="muted">Backups</span><b>${num(last?.backupCostPerH ?? 0, 2)}/h</b></div>
+        <div><span className="muted">Offsite copy</span><b data-testid="dc-offsite-age">{dc.offsite ? (dc.lastOffsiteH == null ? 'first copy pending' : `${num(dc.simH - dc.lastOffsiteH)} h old`) : 'off'}</b></div>
         <div><span className="muted">UPS runtime</span><b data-testid="dc-ups">{dc.upsUnits ? `${num(Math.min(last?.upsRuntimeMin ?? 0, 9999))} min` : 'none'}</b></div>
         <div><span className="muted">Net so far</span><b>{usd(dc.totals.earnedUSD - dc.totals.powerUSD - (dc.totals.backupUSD ?? 0) - (dc.totals.penaltyUSD ?? 0))}</b></div>
       </section>
@@ -278,8 +279,8 @@ function DcShop({ catalog, idx, dc, money, onBuy }) {
           <p><button disabled={money < pdu.priceUSD} onClick={() => onBuy('pdu', { rackId })}>Extra PDU for {rackId} ({usd(pdu.priceUSD)}, {num(pdu.capacityW / 1000, 1)} kW)</button></p>
           <h4>Protection</h4>
           <p><button disabled={money < k.upsUnitUSD} onClick={() => onBuy('ups')} data-testid="dc-buy-ups">UPS unit, {num(k.upsRatedW)} W ({usd(k.upsUnitUSD)})</button> <span className="muted">{dc.upsUnits} installed</span></p>
-          <p><label><input type="checkbox" checked={!!dc.offsite} onChange={(e) => onBuy('offsite', { on: e.target.checked })} data-testid="dc-offsite" /> Offsite copy of all data (${k.offsiteUSDPerTBMonth}/TB/month)</label></p>
-          <p className="muted small-print">RAID protects against a drive dying, snapshots against a bad change, the offsite copy against losing the site, the UPS against a power cut for as long as its battery lasts.</p>
+          <p><label><input type="checkbox" checked={!!dc.offsite} onChange={(e) => onBuy('offsite', { on: e.target.checked })} data-testid="dc-offsite" /> Offsite copy of all data, every {k.offsiteIntervalH} h (${k.offsiteUSDPerTBMonth}/TB/month)</label></p>
+          <p className="muted small-print">RAID keeps a node running through a drive death, snapshots undo a bad change, the offsite copy (daily) restores after any data loss including losing the site, minus the changes since the last copy and with downtime while it downloads; the UPS rides through a power cut for as long as its battery lasts.</p>
           <p className="muted">Feed {num(dc.utilityW / 1000)} kW · {dc.coolingUnits} cooling unit(s) · {dc.racks.length} rack(s)</p>
         </div>
       </div>

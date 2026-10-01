@@ -224,9 +224,40 @@ export const constants = {
     siteLossPerYear: est(0.01, '1/yr', 'Pending. Chance per year of losing the whole site (fire, flood). No data found.'),
     badChangePerNodeYear: est(0.5, '1/yr', 'Pending. Chance per node-year that a bad change (wrong delete, broken upgrade) destroys its data.'),
     dataLossRepLoss: est(10, 'points', 'Pending. Reputation lost per data-loss event.'),
-    penaltyEasy: est(0.05, 'fraction of money', 'Pending. Data-loss penalty on easy (difficulty arrives in stage 10).'),
-    penaltyNormal: est(0.1, 'fraction of money', 'Pending. Data-loss penalty on normal.'),
-    penaltyHard: est(0.15, 'fraction of money', 'User example: on hard, an unhappy client takes 15% of the money the player has.'),
+    // Stage 10a: offsite copy (restores after any data loss, minus changes since the last copy).
+    offsiteIntervalH: est(24, 'h', 'Pending. One offsite copy per day (nightly backups are the common practice; the Proxmox backup docs set no default schedule, opened 2026-10-01).', 'pve-vzdump'),
+    offsiteRestoreGbps: est(1, 'Gbit/s', 'Pending. Internet link the offsite copy is restored over; the restore runs at the slower of this and the node\'s network.'),
+  },
+
+  // Stage 10: difficulty (user-approved table, docs/decisions.md 2026-10-01).
+  // slack scales the room around each job's reference build (so hard jobs stay
+  // provably solvable); the rest multiply rates or are fractions of money.
+  difficulty: {
+    easy: {
+      slack: est(1.15, 'x', 'User-approved: easy = 15% easier. Job slack around the reference build x1.15.'),
+      feeMult: est(1.15, 'x', 'User-approved: client fee x1.15 on easy.'),
+      failureMult: est(0.85, 'x', 'User-approved: failure rates x0.85 on easy.'),
+      dataLossPenalty: est(0.085, 'fraction of money', 'User-approved: data-loss penalty 8.5% of money on easy.'),
+      angryPenalty: est(0, 'fraction of money', 'User-approved: no angry-client penalty on easy.'),
+      demandMult: est(0.85, 'x', 'User-approved: datacenter demand growth and spike chance/size x0.85 on easy.'),
+      patienceMult: est(1.15, 'x', 'User-approved: overload patience x1.15 on easy (6 h -> 6.9 h).'),
+    },
+    normal: {
+      slack: est(1, 'x', 'User-approved: normal is the baseline.'),
+      feeMult: est(1, 'x', 'User-approved: normal is the baseline, no change.'), failureMult: est(1, 'x', 'User-approved: normal is the baseline, no change.'),
+      dataLossPenalty: est(0.1, 'fraction of money', 'User-approved: data-loss penalty 10% of money on normal.'),
+      angryPenalty: est(0, 'fraction of money', 'User-approved: no angry-client penalty on normal.'),
+      demandMult: est(1, 'x', 'User-approved: normal is the baseline, no change.'), patienceMult: est(1, 'x', 'User-approved: normal is the baseline, no change.'),
+    },
+    hard: {
+      slack: est(0.7, 'x', 'User-approved: hard = 30% harder. Job slack around the reference build x0.70.'),
+      feeMult: est(0.7, 'x', 'User-approved: client fee x0.70 on hard.'),
+      failureMult: est(1.3, 'x', 'User-approved: failure rates x1.30 on hard.'),
+      dataLossPenalty: est(0.13, 'fraction of money', 'User-approved: data-loss penalty 13% of money on hard.'),
+      angryPenalty: est(0.15, 'fraction of money', 'User example from the brief: on hard, an unhappy client takes 15% of the money the player has.'),
+      demandMult: est(1.3, 'x', 'User-approved: datacenter demand growth and spike chance/size x1.30 on hard.'),
+      patienceMult: est(0.7, 'x', 'User-approved: overload patience x0.70 on hard (6 h -> 4.2 h).'),
+    },
   },
 
   // Stage 6: which software runs on which OS (published install requirements).

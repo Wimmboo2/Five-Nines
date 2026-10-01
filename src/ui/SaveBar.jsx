@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { fmtPlayed } from '../save/clock.js';
+import { DIFFICULTIES } from '../game/difficulty.js';
 
 function download(name, text) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -12,6 +13,7 @@ export function SaveBar({ playedS, exportText, onImport, onNewGame }) {
   const file = useRef(null);
   const [msg, setMsg] = useState(null);
   const [confirming, setConfirming] = useState(false);
+  const [diff, setDiff] = useState('normal');
   const pick = async (e) => {
     const f = e.target.files?.[0];
     e.target.value = '';
@@ -30,9 +32,10 @@ export function SaveBar({ playedS, exportText, onImport, onNewGame }) {
       {!confirming && <button className="small" onClick={() => setConfirming(true)} data-testid="new-game">New game</button>}
       {confirming && (
         <span className="confirm" data-testid="new-game-confirm">
-          Start over? Your current game is lost unless you export it.
+          Start over? Your current game is lost unless you export it. Difficulty (fixed for the new game):
+          <select value={diff} onChange={(e) => setDiff(e.target.value)} data-testid="new-game-difficulty">{DIFFICULTIES.map((d) => <option key={d} value={d}>{d}</option>)}</select>
           <button className="small" onClick={() => download('five-nines-save.json', exportText())}>Export first</button>
-          <button className="small danger" onClick={() => { setConfirming(false); onNewGame(); }} data-testid="new-game-yes">Start new game</button>
+          <button className="small danger" onClick={() => { setConfirming(false); onNewGame(diff); }} data-testid="new-game-yes">Start new game</button>
           <button className="small" onClick={() => setConfirming(false)}>Cancel</button>
         </span>
       )}

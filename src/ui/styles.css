@@ -118,3 +118,5 @@ button.danger { background: #a93226; }
 .node-care { margin-top: 6px; font-size: 13px; }
 .node-care .bad-text { margin: 4px 0; }
 .care-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.difficulty { margin-left: 12px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; text-transform: capitalize; color: var(--muted); }
+.difficulty { margin-left: 12px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; text-transform: capitalize; color: var(--muted); }

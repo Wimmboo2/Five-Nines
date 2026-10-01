@@ -20,6 +20,8 @@ export function runStressTest(evaluation, room, opts = {}) {
   const dtS = opts.dtS ?? 10;
   const sampleEveryS = opts.sampleEveryS ?? 60;
   const rng = makeRng(opts.seed ?? 1);
+  // Difficulty scales failure rates (constants.difficulty, src/game/difficulty.js).
+  const failureMult = idx.constants.difficulty?.[opts.difficulty ?? 'normal']?.failureMult ?? 1;
   const fans = allFans(idx, build);
 
   if (evaluation.failures.length) {
@@ -59,7 +61,7 @@ export function runStressTest(evaluation, room, opts = {}) {
     });
     for (const r of rates) {
       const forced = opts.forceFailure && opts.forceFailure.key === r.key && t >= opts.forceFailure.atS;
-      if (forced || rng() < failProbability(r.afr, dtS)) {
+      if (forced || rng() < failProbability(r.afr * failureMult, dtS)) {
         return { completed: false, failedAtS: t, failure: { code: 'part-failure', part: r.key, message: `${r.label} failed at ${fmtTime(t)}. Replace it and run the whole test again.` }, samples };
       }
     }

@@ -12,7 +12,7 @@ export function configKey(build, software) {
 // random part failure is a fresh roll on the redo.
 export function startStressTest(evaluation, job, build, software, attempt) {
   const seed = job.seed * 1000 + attempt;
-  const result = runStressTest(evaluation, job.room, { seed });
+  const result = runStressTest(evaluation, job.room, { seed, difficulty: job.difficulty });
   return { key: configKey(build, software), attempt, seed, result };
 }
 

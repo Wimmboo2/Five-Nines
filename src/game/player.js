@@ -10,8 +10,12 @@ export function newPlayer() {
 }
 
 // Pure: returns the new player state and what changed.
-export function applyDelivery(player, job, score) {
-  const money = Math.round(job.payoutUSD * score.payoutMultiplier);
+// diff: the save's difficulty row (src/game/difficulty.js). On hard an angry
+// or rejecting client also takes a share of the player's money (brief example).
+export function applyDelivery(player, job, score, diff = null) {
+  const angry = score.satisfaction === 'angry' || score.satisfaction === 'rejected';
+  const penalty = angry && diff ? Math.round(player.money * diff.angryPenalty) : 0;
+  const money = Math.round(job.payoutUSD * score.payoutMultiplier) - penalty;
   const xp = Math.round(job.xp * score.xpMultiplier);
   const totalXp = player.xp + xp;
   const level = levelFor(totalXp);
@@ -19,5 +23,5 @@ export function applyDelivery(player, job, score) {
     money: player.money + money, xp: totalXp, level,
     delivered: [...player.delivered, { jobId: job.id, client: job.client.name, score: score.score, money, xp }],
   };
-  return { player: next, earned: { money, xp }, levelUp: level > player.level ? level : null };
+  return { player: next, earned: { money, xp, penalty }, levelUp: level > player.level ? level : null };
 }

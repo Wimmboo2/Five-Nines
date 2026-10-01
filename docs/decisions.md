@@ -159,3 +159,25 @@ All of the following are **pending sign-off**.
 - Bad changes 0.5 per node-year; site loss 0.01 per year (no data found).
 - Data loss: penalty = fraction of the player's current money (easy 5%, normal 10%, hard 15% per the user's example), reputation -10, and the biggest customer of that workload leaves. Difficulty is passed in as 'normal' until stage 10.
 - Snapshots cost like offsite storage ($6.95/TB/month of the node's usable data); offsite is billed on all usable data.
+
+## 2026-10-01: stage 10 question round (difficulty, time scale)
+
+- **Difficulty table (approved as proposed),** read through one function (`src/game/difficulty.js`, values in `constants.difficulty`). Job limits scale the slack around each job's reference build, so hard jobs stay provably solvable:
+  - performance target (ref x [0.75,0.95]): easy x[0.71,0.94], hard x[0.83,0.97]
+  - power limit (ref x [1.10,1.35]): easy [1.12,1.40], hard [1.07,1.25]
+  - noise limit (ref +[2,6] dB): easy +[2.3,6.9], hard +[1.4,4.2]
+  - room temperature limit (ref +[1,3] C): easy +[1.15,3.45], hard +[0.7,2.1]
+  - budget (ref cost x [1.10,1.40]): easy [1.12,1.46], hard [1.07,1.28]
+  - client fee: easy x1.15, hard x0.70
+  - failure rates (stress test and datacenter parts, bad changes, power cuts, site loss): easy x0.85, hard x1.30
+  - data-loss penalty: easy 8.5%, normal 10%, hard 13% of money (replaces the stage 9 picks of 5/10/15%)
+  - angry-client penalty (brief example): hard only, 15% of money when a client is angry or rejects the delivery
+  - datacenter demand growth and spike chance/size: easy x0.85, hard x1.30
+  - overload patience before customers leave (6 h): easy 6.9 h, hard 4.2 h
+- **Scope:** difficulty applies to client jobs and the personal datacenter.
+- **When:** chosen at New game and locked for that save. Saves from before stage 10 load as normal (save version 3 migration).
+- **Datacenter time scale:** stays at 1 real second = 1 simulated hour, as a **deliberate, logged exception** to the locked "time runs in real time" decision. It applies only to the personal datacenter; client jobs, the stress test (60x by the stage 7 decision) and the play clock are unchanged.
+- **Example job (written item, unanswered):** Claude's stated default applied: 262,144 tokens added to the homelab context menu (only for models that support it natively). Pending sign-off.
+
+### Stage 10 values picked by Claude, pending sign-off
+- Offsite copy: one copy every 24 h (`offsiteIntervalH`; the Proxmox backup docs set no default schedule), restored over a 1 Gbit/s internet link or the node's own network if slower (`offsiteRestoreGbps`). It now restores after **any** data loss (drive or array death, failed rebuild, bad change without snapshots, site loss): the node is down for data size / link speed, and the changes since the last copy are lost. The penalty and reputation hit scale with (hours since the last copy / 24 h), capped at a full loss. Without an offsite copy, data loss stays total. The copy itself is treated as instant, and its upload time isn't modeled.

@@ -58,11 +58,8 @@ describe('job generator (stage 4)', () => {
     expect(generateJob(catalog, { seed: 7, idx })).not.toEqual(generateJob(catalog, { seed: 8, idx }));
   });
 
-  it('passes difficulty through (not implemented yet: stage 10)', () => {
-    const j = generateJob(catalog, { seed: 5, idx, difficulty: 'hard' });
-    expect(j.difficulty).toBe('hard');
-    const n = generateJob(catalog, { seed: 5, idx });
-    expect({ ...j, difficulty: 'normal' }).toEqual(n); // no effect yet
+  it('passes difficulty through to the job', () => {
+    expect(generateJob(catalog, { seed: 5, idx, difficulty: 'hard' }).difficulty).toBe('hard');
   });
 });
 

@@ -10,6 +10,7 @@
 
 import { failureRates, failProbability } from '../sim/durability.js';
 import { allFans } from '../sim/power.js';
+import { difficulty } from '../game/difficulty.js';
 
 export const RAID_LEVELS = {
   none: { minDrives: 1, tolerates: 0, usable: (n) => n },
@@ -53,13 +54,22 @@ export function upsRuntimeMin(k, units, loadW) {
   return k.upsMinAtFullLoad * (k.upsRatedW / perUnitW) ** b;
 }
 
-export function penaltyFraction(k, difficulty = 'normal') {
-  return difficulty === 'easy' ? k.penaltyEasy : difficulty === 'hard' ? k.penaltyHard : k.penaltyNormal;
+// Data-loss penalty as a share of the player's money, from the difficulty table.
+export function penaltyFraction(idx, name = 'normal') {
+  return difficulty(idx, name).dataLossPenalty;
+}
+
+// Hours to pull a node's data back from the offsite copy: the slower of the
+// internet link and the node's own network.
+export function restoreHours(idx, node, nodeNicGbps) {
+  const k = idx.constants.datacenter;
+  const gbps = Math.min(k.offsiteRestoreGbps, nodeNicGbps);
+  return (nodeDataTB(idx, node) * 8e12) / (gbps * 1e9) / 3600;
 }
 
 // Rolls part failures for every node for dtH hours. `rand` is the seeded
 // generator; `readings` are the node gauges from this step (temps, load).
-export function rollPartFailures(idx, dc, readings, dtH, rand, force) {
+export function rollPartFailures(idx, dc, readings, dtH, rand, force, failureMult = 1) {
   const events = [];
   dc.nodes.forEach((n, i) => {
     if (n.down) return;
@@ -74,7 +84,7 @@ export function rollPartFailures(idx, dc, readings, dtH, rand, force) {
     });
     for (const r of rates) {
       const forced = force?.nodeId === n.id && force.key === r.key;
-      if (forced || rand() < failProbability(r.afr, dtH * 3600)) events.push({ nodeId: n.id, key: r.key, label: r.label });
+      if (forced || rand() < failProbability(r.afr * failureMult, dtH * 3600)) events.push({ nodeId: n.id, key: r.key, label: r.label });
     }
   });
   return events;

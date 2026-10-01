@@ -49,10 +49,10 @@ describe('data loss and protection (stage 9b)', () => {
     const { dc, id } = site();
     const r = step(dc, { part: { nodeId: id, key: 'storage:0' } });
     expect(lost(r)).toBe(true);
-    expect(r.dc.totals.penaltyUSD).toBeCloseTo(penaltyFraction(k, 'normal') * MONEY, 6);
+    expect(r.dc.totals.penaltyUSD).toBeCloseTo(penaltyFraction(idx, 'normal') * MONEY, 6);
     expect(r.dc.alerts.some((a) => a.kind === 'data-loss')).toBe(true);
-    expect(penaltyFraction(k, 'hard')).toBe(0.15);
-    expect(penaltyFraction(k, 'easy')).toBeLessThan(penaltyFraction(k, 'normal'));
+    expect(penaltyFraction(idx, 'hard')).toBe(0.13);
+    expect(penaltyFraction(idx, 'easy')).toBe(0.085);
   });
   it('RAID protects against a drive dying, unless the rebuild hits a read error', () => {
     const { dc, id } = site({ drives: 2, raid: 'raid1' });
@@ -74,11 +74,7 @@ describe('data loss and protection (stage 9b)', () => {
     const raid = site({ drives: 2, raid: 'raid1' });
     expect(lost(step(raid.dc, { badChange: raid.id }))).toBe(true);
   });
-  it('the offsite copy protects against losing the site and nothing else', () => {
-    const o = site({ offsite: true });
-    expect(lost(step(o.dc, { siteLoss: true }))).toBe(false);
-    expect(lost(step(o.dc, { badChange: o.id }))).toBe(true);
-    expect(lost(step(o.dc, { part: { nodeId: o.id, key: 'storage:0' } }))).toBe(true);
+  it('without an offsite copy, losing the site loses everything even with RAID and snapshots', () => {
     const raid = site({ drives: 2, raid: 'raid1', snapshots: true });
     expect(lost(step(raid.dc, { siteLoss: true }))).toBe(true);
   });

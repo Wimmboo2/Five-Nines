@@ -7,13 +7,14 @@ import { emptyBuild, simBuild } from '../ui/buildState.js';
 import { emptySoftware, simSoftware } from '../ui/softwareState.js';
 import { startStressTest } from './flow.js';
 
-export function rollBoard(catalog, seed, level) {
-  return generateJobs(catalog, { seed, count: 6, level });
+export function rollBoard(catalog, seed, level, difficulty = 'normal') {
+  return generateJobs(catalog, { seed, count: 6, level, difficulty });
 }
 
-export function newGame(catalog) {
+// Difficulty is chosen here and fixed for the save (user decision).
+export function newGame(catalog, difficulty = 'normal') {
   return {
-    tab: 'jobs', boardSeed: 1, jobs: rollBoard(catalog, 1, 1), activeJobId: null,
+    difficulty, tab: 'jobs', boardSeed: 1, jobs: rollBoard(catalog, 1, 1, difficulty), activeJobId: null,
     build: emptyBuild(), software: emptySoftware(), player: newPlayer(),
     shop: { cat: 'all', tier: 'all' },
     run: null, attempt: 0, broken: null, result: null, playedS: 0,

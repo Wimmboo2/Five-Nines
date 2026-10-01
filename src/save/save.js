@@ -6,7 +6,7 @@
 // - checksum is FNV-1a over JSON.stringify(data). It catches corruption and
 //   hand edits; anyone can recompute it, so it is not tamper-proof.
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const SAVE_KEY = 'five-nines-save';
 
 // version -> function that upgrades data from that version to version + 1.
@@ -14,6 +14,8 @@ export const MIGRATIONS = {
   // v1 -> v2 (stage 9): the personal datacenter. Version 1 saves predate it,
   // so the player hasn't opened one yet.
   1: (d) => ({ ...d, datacenter: null }),
+  // v2 -> v3 (stage 10): difficulty, chosen at new game. Older saves are normal.
+  2: (d) => ({ ...d, difficulty: 'normal' }),
 };
 
 export function fnv1a(str) {
@@ -61,6 +63,7 @@ function checkShape(d) {
   if (!d.build || !Array.isArray(d.build.gpus)) return 'build is missing';
   if (!d.software || typeof d.software !== 'object') return 'software is missing';
   if (!num(d.playedS)) return 'time played is missing';
+  if (!['easy', 'normal', 'hard'].includes(d.difficulty)) return 'difficulty is missing';
   if (d.datacenter != null && (typeof d.datacenter !== 'object' || !Array.isArray(d.datacenter.nodes) || !num(d.datacenter.simH))) return 'datacenter is invalid';
   return null;
 }

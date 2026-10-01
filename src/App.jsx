@@ -21,6 +21,7 @@ import { SAVE_KEY, serialize, deserialize } from './save/save.js';
 import { makeStorage } from './save/storage.js';
 import { watchOtherTabs } from './save/tabs.js';
 import { advance } from './save/clock.js';
+import { difficulty } from './game/difficulty.js';
 import { Datacenter } from './ui/Datacenter.jsx';
 import { dcAdvance } from './dc/clock.js';
 import * as DC from './dc/datacenter.js';
@@ -106,8 +107,8 @@ export default function App() {
         if (!a.steps) return { ...g, dcCarryH: a.carryH };
         let dc = g.datacenter;
         let delta = 0;
-        for (let i = 0; i < a.steps; i++) { // Difficulty arrives in stage 10; the data-loss penalty uses 'normal' until then.
-          const r = DC.stepDatacenter(catalog, idx, dc, 1, { difficulty: 'normal', money: g.player.money + delta }); dc = r.dc; delta += r.moneyDelta; }
+        for (let i = 0; i < a.steps; i++) {
+          const r = DC.stepDatacenter(catalog, idx, dc, 1, { difficulty: g.difficulty, money: g.player.money + delta }); dc = r.dc; delta += r.moneyDelta; }
         return { ...g, datacenter: dc, dcCarryH: a.carryH, player: { ...g.player, money: g.player.money + delta } };
       });
     }, 1000);
@@ -146,12 +147,12 @@ export default function App() {
   };
   const deliver = (ev) => {
     const score = scoreDelivery(ev, activeJob);
-    const out = applyDelivery(player, activeJob, score);
+    const out = applyDelivery(player, activeJob, score, difficulty(idx, game.difficulty));
     update((g) => ({
       ...resetWork, player: out.player, activeJobId: null,
       result: { job: activeJob, score, ...out },
       // New tiers or job types unlock with a level: roll a fresh board.
-      ...(out.levelUp ? { boardSeed: g.boardSeed + 1, jobs: rollBoard(catalog, g.boardSeed + 1, out.player.level) } : {}),
+      ...(out.levelUp ? { boardSeed: g.boardSeed + 1, jobs: rollBoard(catalog, g.boardSeed + 1, out.player.level, g.difficulty) } : {}),
     }));
   };
   const loadGame = (raw) => {
@@ -163,8 +164,8 @@ export default function App() {
     setGame(g); setNotices(d.removed); setUnreadable(null); setLoadError(null);
     return null;
   };
-  const startNew = () => {
-    const g = newGame(catalog);
+  const startNew = (diff) => {
+    const g = newGame(catalog, diff);
     played.current = 0; setPlayedS(0);
     setUnreadable(null); setLoadError(null); setNotices([]);
     setGame(g);
@@ -183,6 +184,7 @@ export default function App() {
       <nav className="topbar">
         <div className="brand">Five Nines</div>
         {TABS.map(([k, label]) => <button key={k} className={tab === k ? 'tab on' : 'tab'} onClick={() => update({ tab: k })} data-testid={`tab-${k}`}>{label}</button>)}
+        <div className="difficulty" data-testid="difficulty">{game.difficulty}</div>
         <div className="player" data-testid="player">{usd(player.money)} · Level <b data-testid="level">{player.level}</b> · {player.xp} / {nextXp} xp</div>
         <div className="active-job" data-testid="active-job">{activeJob ? <>Active: <b>{activeJob.client.name}</b></> : <span className="muted">No active job</span>}</div>
       </nav>
@@ -199,7 +201,7 @@ export default function App() {
           onReroll={() => update((g) => {
             // The active job stays on the board when the rest is rerolled.
             const active = g.jobs.find((j) => j.id === g.activeJobId);
-            const fresh = rollBoard(catalog, g.boardSeed + 1, g.player.level);
+            const fresh = rollBoard(catalog, g.boardSeed + 1, g.player.level, g.difficulty);
             return { boardSeed: g.boardSeed + 1, jobs: active && !fresh.some((j) => j.id === active.id) ? [active, ...fresh] : fresh };
           })}
           onTake={(j) => update((g) => ({ ...(j.id !== g.activeJobId ? resetWork : {}), activeJobId: j.id, tab: 'shop' }))} />}

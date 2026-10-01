@@ -18,6 +18,7 @@ import { CLIENTS, TIERS } from './clients.js';
 import { referenceCandidates } from './templates.js';
 import { referenceSoftware } from './software.js';
 import { tierOpen, typeOpen } from './levels.js';
+import { difficulty as difficultyOf, slackBelow, slackAbove, slackAdd } from '../game/difficulty.js';
 
 // Game-design constants for how much slack jobs get around the reference build.
 // Values picked by Claude, pending the user's sign-off: see docs/decisions.md,
@@ -148,6 +149,13 @@ export function generateJob(catalog, opts = {}) {
   const rng = makeRng(seed);
   const level = opts.level ?? Infinity;
   const tier = opts.tier ?? pick(rng, TIERS.filter((t) => tierOpen(t, level)));
+  // Every difficulty lever for jobs comes from the one table.
+  const d = difficultyOf(idx, difficulty);
+  const perfRange = slackBelow(GEN.perfTargetOfRef, d.slack);
+  const powerRange = slackAbove(GEN.powerLimitOfRef, d.slack);
+  const noiseRange = slackAdd(GEN.noiseLimitOverRefDB, d.slack);
+  const tempRange = slackAdd(GEN.tempLimitOverRefC, d.slack);
+  const budgetRange = slackAbove(GEN.budgetOfRefCost, d.slack);
   for (let attempt = 0; attempt < GEN.maxTries; attempt++) {
     const client = pick(rng, CLIENTS.filter((c) => c.tier === tier && c.jobTypes.some((t) => typeOpen(t, level))));
     const type = pick(rng, client.jobTypes.filter((t) => typeOpen(t, level)));
@@ -158,25 +166,25 @@ export function generateJob(catalog, opts = {}) {
     const m = measure(ref.evaluation, { workload });
     const targets = {};
     if (workload.inference) {
-      targets.tokPerSec = { value: Math.max(1, roundTo(m.tokPerSec * between(rng, GEN.perfTargetOfRef), m.tokPerSec > 50 ? 5 : 1)),
+      targets.tokPerSec = { value: Math.max(1, roundTo(m.tokPerSec * between(rng, perfRange), m.tokPerSec > 50 ? 5 : 1)),
         atContext: workload.inference.contextLength, concurrency: workload.inference.concurrency };
     }
     if (workload.gameServer) targets.tps = { value: GEN.mcTps, players: workload.gameServer.players };
     if (workload.cloud) {
-      targets.vmCpu = { value: roundTo(m.vmCpu * between(rng, GEN.perfTargetOfRef), 0.1) };
-      targets.vmIops = { value: roundTo(m.vmIops * between(rng, GEN.perfTargetOfRef), 1000) };
+      targets.vmCpu = { value: roundTo(m.vmCpu * between(rng, perfRange), 0.1) };
+      targets.vmIops = { value: roundTo(m.vmIops * between(rng, perfRange), 1000) };
     }
-    targets.powerLimitW = Math.ceil(m.wallW * between(rng, GEN.powerLimitOfRef) / 50) * 50;
-    if (client.priorities.noise > 0) targets.noiseLimitDBA = Math.ceil(m.dBA + between(rng, GEN.noiseLimitOverRefDB));
-    targets.roomTempLimitC = Math.ceil((m.roomC + between(rng, GEN.tempLimitOverRefC)) * 2) / 2;
+    targets.powerLimitW = Math.ceil(m.wallW * between(rng, powerRange) / 50) * 50;
+    if (client.priorities.noise > 0) targets.noiseLimitDBA = Math.ceil(m.dBA + between(rng, noiseRange));
+    targets.roomTempLimitC = Math.ceil((m.roomC + between(rng, tempRange)) * 2) / 2;
     const budgetStep = tier === 'homelab' ? 100 : tier === 'server' ? 1000 : 10000;
-    const budgetUSD = Math.ceil(ref.costUSD * between(rng, GEN.budgetOfRefCost) / budgetStep) * budgetStep;
+    const budgetUSD = Math.ceil(ref.costUSD * between(rng, budgetRange) / budgetStep) * budgetStep;
     return {
       id: `job-${seed}`, seed, difficulty, tier, type,
       client: { id: client.id, name: client.name },
       priorities: { ...client.priorities },
       workload, targets, budgetUSD, room,
-      payoutUSD: roundTo(budgetUSD * between(rng, GEN.feeOfBudget), 10),
+      payoutUSD: roundTo(budgetUSD * between(rng, GEN.feeOfBudget) * d.feeMult, 10),
       xp: GEN.baseXp[tier],
       // Proof of solvability. Kept for tests and debugging; the UI does not show it.
       reference: { build: ref.build, costUSD: ref.costUSD, software: ref.software },

@@ -7,7 +7,8 @@ import { hallRoom, nodeProfile, nodeGauges, ROLES } from './model.js';
 import { roomStep } from '../sim/thermal.js';
 import { buildCost } from '../jobs/cost.js';
 import { allFans } from '../sim/power.js';
-import { RAID_LEVELS, driveCount, nodeDataTB, rebuildUreRisk, upsRuntimeMin, penaltyFraction, rollPartFailures } from './failures.js';
+import { RAID_LEVELS, driveCount, nodeDataTB, rebuildUreRisk, upsRuntimeMin, penaltyFraction, rollPartFailures, restoreHours } from './failures.js';
+import { difficulty } from '../game/difficulty.js';
 
 // Utilization shown when there is demand but no working capacity (JSON has no Infinity).
 export const NO_CAPACITY = 99;
@@ -81,7 +82,11 @@ export function buyNic(idx, dc, nodeId, partId) {
 
 // ---- stage 9b: repairs and protection ----
 const mapNode = (dc, id, f) => ({ ...dc, nodes: dc.nodes.map((n) => (n.id === id ? f(n) : n)) });
-const isDown = (n) => n.dataLost || n.dead.some((d) => !d.key.startsWith('fan:') && !d.key.startsWith('storage:'));
+// Down: data gone, restoring from offsite, a core part dead, or more dead
+// drives than the RAID level tolerates.
+const isDown = (n, nowH = -Infinity) => n.dataLost || (n.restoringUntilH != null && n.restoringUntilH > nowH)
+  || n.dead.some((d) => !d.key.startsWith('fan:') && !d.key.startsWith('storage:'))
+  || (n.deadDrives ?? 0) > RAID_LEVELS[n.raid ?? 'none'].tolerates;
 
 export function partPrice(idx, build, key) {
   const [kind, i] = key.split(':');
@@ -100,10 +105,10 @@ export function replacePart(idx, dc, nodeId, key) {
   const deadDrives = key.startsWith('storage:') ? Math.max(0, n.deadDrives - 1) : n.deadDrives;
   const dataLost = n.dataLost && deadDrives > 0 ? n.dataLost : false;
   const next = { ...n, dead, deadDrives, dataLost: key.startsWith('storage:') ? dataLost : n.dataLost };
-  return { dc: mapNode(dc, nodeId, () => ({ ...next, down: isDown(next) })), costUSD: partPrice(idx, n.build, key) };
+  return { dc: mapNode(dc, nodeId, () => ({ ...next, down: isDown(next, dc.simH) })), costUSD: partPrice(idx, n.build, key) };
 }
 export function restoreNode(dc, nodeId) {
-  return { dc: mapNode(dc, nodeId, (n) => { const x = { ...n, dataLost: n.dead.some((d) => d.key.startsWith('storage:')) }; return { ...x, down: isDown(x) }; }), costUSD: 0 };
+  return { dc: mapNode(dc, nodeId, (n) => { const x = { ...n, dataLost: n.dead.some((d) => d.key.startsWith('storage:')) }; return { ...x, down: isDown(x, dc.simH) }; }), costUSD: 0 };
 }
 export function addDrive(idx, dc, nodeId, partId) {
   const part = idx.parts.get(partId);
@@ -144,7 +149,19 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
   // Fields added in stage 9b default for datacenters opened before it.
   dc.offsite ??= false; dc.upsUnits ??= 0;
   dc.totals.backupUSD ??= 0; dc.totals.penaltyUSD ??= 0;
-  for (const n of dc.nodes) { n.dead ??= []; n.raid ??= 'none'; n.snapshots ??= false; n.deadDrives ??= 0; n.dataLost ??= false; n.down ??= false; }
+  for (const n of dc.nodes) { n.dead ??= []; n.raid ??= 'none'; n.snapshots ??= false; n.deadDrives ??= 0; n.dataLost ??= false; n.down ??= false; n.restoringUntilH ??= null; }
+  dc.lastOffsiteH ??= null;
+  const diff = difficulty(idx, opts.difficulty);
+  // Restores that finished bring their node back (if nothing else keeps it down).
+  for (const n of dc.nodes) {
+    if (n.restoringUntilH != null && n.restoringUntilH <= dc.simH) {
+      n.restoringUntilH = null;
+      dc.alerts.unshift({ h: dc.simH, level: 'warning', kind: 'backup', node: n.id, text: `${n.id} finished restoring from the offsite copy.` });
+    }
+    n.down = isDown(n, dc.simH);
+  }
+  // The offsite copy runs on its interval.
+  if (dc.offsite && (dc.lastOffsiteH == null || dc.simH - dc.lastOffsiteH >= k.offsiteIntervalH)) dc.lastOffsiteH = dc.simH;
   let rng = dc.rngState;
   const rand = () => { const [v, s] = rngNext(rng); rng = s; return v; };
   const hall = hallRoom(catalog, idx, dc, dc.hallC);
@@ -153,7 +170,11 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
   const profiles = dc.nodes.map((n) => {
     const p = nodeProfile(catalog, idx, n, hall);
     if (!n.down) return p;
-    const why = n.dataLost ? 'its data was lost; replace the drives and restore' : `${n.dead.find((d) => !d.key.startsWith('fan:'))?.label ?? 'a part'} is dead`;
+    const core = n.dead.find((d) => !d.key.startsWith('fan:') && !d.key.startsWith('storage:'));
+    const why = n.dataLost ? 'its data was lost; replace the drives and restore'
+      : core ? `${core.label} is dead`
+        : n.restoringUntilH != null && n.restoringUntilH > dc.simH ? `restoring from the offsite copy, ${(n.restoringUntilH - dc.simH).toFixed(1)} h left`
+          : 'its RAID lost too many drives; replace them';
     return { ...p, ok: false, capacity: 0, error: `Down: ${why}.`, fullW: p.idleW };
   });
   const served = Object.fromEntries(ROLES.map((r) => [r, dc.nodes.some((n, i) => n.role === r && profiles[i].ok)]));
@@ -161,17 +182,17 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
   // New customers, spikes, spike expiry.
   for (const role of ROLES) {
     if (!served[role]) continue;
-    const rate = k.arrivalsPerHourAt50Rep * (dc.reputation / 50) * (1 + k.growthPerDay) ** (dc.simH / 24) * dtH;
+    const rate = k.arrivalsPerHourAt50Rep * (dc.reputation / 50) * (1 + k.growthPerDay * diff.demandMult) ** (dc.simH / 24) * dtH;
     if (rand() < Math.min(1, rate)) {
       const [lo, hi] = role === 'inference' ? [k.inferenceSizeMin, k.inferenceSizeMax] : role === 'game' ? [k.gameSizeMin, k.gameSizeMax] : [k.vmSizeMin, k.vmSizeMax];
       dc.customers.push({ id: `c-${dc.nextId++}`, role, size: Math.round(lo + (hi - lo) * rand()), since: dc.simH, spike: null });
     }
   }
   for (const c of dc.customers) if (c.spike && c.spike.untilH <= dc.simH) c.spike = null;
-  if (dc.customers.length && rand() < k.spikeChancePerHour * dtH) {
+  if (dc.customers.length && rand() < k.spikeChancePerHour * diff.demandMult * dtH) {
     const c = dc.customers[Math.floor(rand() * dc.customers.length)];
     if (!c.spike) {
-      c.spike = { mult: k.spikeMultMin + (k.spikeMultMax - k.spikeMultMin) * rand(), untilH: dc.simH + k.spikeHoursMin + (k.spikeHoursMax - k.spikeHoursMin) * rand() };
+      c.spike = { mult: 1 + (k.spikeMultMin + (k.spikeMultMax - k.spikeMultMin) * rand() - 1) * diff.demandMult, untilH: dc.simH + k.spikeHoursMin + (k.spikeHoursMax - k.spikeHoursMin) * rand() };
       dc.alerts.unshift({ h: dc.simH, level: 'warning', text: `A ${c.role === 'game' ? 'game-server' : c.role === 'vm' ? 'VM' : 'inference'} customer's demand spiked x${c.spike.mult.toFixed(1)}.` });
     }
   }
@@ -231,40 +252,55 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
   // ---- stage 9b: failures, power cuts, bad changes, site loss ----
   const force = opts.force ?? {};
   let penalty = 0;
+  const nicOf = (n) => profiles[dc.nodes.indexOf(n)]?.netGbps ?? k.onboardNicGbps;
   const loseData = (n, cause) => {
+    const full = penaltyFraction(idx, opts.difficulty) * Math.max(0, opts.money ?? 0);
+    if (dc.offsite && dc.lastOffsiteH != null) {
+      // Restore from the offsite copy: down while the data comes back; only
+      // what changed since the last copy is lost (share of the copy interval).
+      const sinceH = dc.simH - dc.lastOffsiteH;
+      const lostShare = Math.min(1, sinceH / k.offsiteIntervalH);
+      const hours = restoreHours(idx, n, nicOf(n));
+      n.restoringUntilH = Math.max(n.restoringUntilH ?? 0, dc.simH + hours);
+      n.down = true;
+      const fine = full * lostShare;
+      penalty += fine;
+      const rep = Math.round(k.dataLossRepLoss * lostShare * 10) / 10;
+      dc.reputation = Math.max(0, dc.reputation - rep);
+      dc.alerts.unshift({ h: dc.simH, level: 'serious', kind: 'restore', node: n.id, text: `${n.id}: ${cause}. Restoring from the offsite copy (${hours.toFixed(1)} h); the last ${sinceH.toFixed(0)} h of changes are lost: penalty $${Math.round(fine).toLocaleString('en-US')}, reputation -${rep}.` });
+      return;
+    }
     n.dataLost = true; n.down = true;
-    const fine = penaltyFraction(k, opts.difficulty) * Math.max(0, opts.money ?? 0);
-    penalty += fine;
+    penalty += full;
     dc.reputation = Math.max(0, dc.reputation - k.dataLossRepLoss);
     const victim = dc.customers.filter((c) => c.role === n.role).sort((a, b) => b.size - a.size)[0];
     if (victim) dc.customers = dc.customers.filter((c) => c !== victim);
-    dc.alerts.unshift({ h: dc.simH, level: 'critical', kind: 'data-loss', node: n.id, text: `DATA LOST on ${n.id}: ${cause}. Customers lost data; penalty $${Math.round(fine).toLocaleString('en-US')}, reputation -${k.dataLossRepLoss}.` });
+    dc.alerts.unshift({ h: dc.simH, level: 'critical', kind: 'data-loss', node: n.id, text: `DATA LOST on ${n.id}: ${cause}. Customers lost data; penalty $${Math.round(full).toLocaleString('en-US')}, reputation -${k.dataLossRepLoss}.` });
   };
-  for (const ev of rollPartFailures(idx, dc, nodes, dtH, rand, force.part)) {
+  for (const ev of rollPartFailures(idx, dc, nodes, dtH, rand, force.part, diff.failureMult)) {
     const n = dc.nodes.find((x) => x.id === ev.nodeId);
     n.dead.push({ key: ev.key, label: ev.label });
     if (ev.key.startsWith('storage:')) {
       n.deadDrives += 1;
       const lvl = RAID_LEVELS[n.raid ?? 'none'];
-      if (n.deadDrives > lvl.tolerates) loseData(n, `${ev.label} died with no ${n.raid === 'none' ? 'RAID' : 'redundancy left'}`);
+      if (n.deadDrives === lvl.tolerates + 1) loseData(n, `${ev.label} died with no ${n.raid === 'none' ? 'RAID' : 'redundancy left'}`);
       else if (n.deadDrives === lvl.tolerates && lvl.tolerates === 1 && rand() < (force.ure ?? rebuildUreRisk(idx, n))) loseData(n, `the rebuild after ${ev.label} hit an unrecoverable read error`);
       else dc.alerts.unshift({ h: dc.simH, level: 'serious', kind: 'part', node: n.id, text: `${ev.label} in ${n.id} died. ${n.raid.toUpperCase()} kept the data; replace the drive.` });
     } else {
       dc.alerts.unshift({ h: dc.simH, level: ev.key.startsWith('fan:') ? 'serious' : 'critical', kind: 'part', node: n.id, text: `${ev.label} in ${n.id} died.${ev.key.startsWith('fan:') ? '' : ` ${n.id} is down until it's replaced.`}` });
     }
-    n.down = n.dataLost || n.dead.some((d) => !d.key.startsWith('fan:') && !d.key.startsWith('storage:'));
+    n.down = isDown(n, dc.simH);
   }
   for (const n of dc.nodes) {
-    if (n.dataLost || !(force.badChange === n.id || rand() < 1 - Math.exp(-(k.badChangePerNodeYear / 8766) * dtH))) continue;
+    if (n.dataLost || !(force.badChange === n.id || rand() < 1 - Math.exp(-((k.badChangePerNodeYear * diff.failureMult) / 8766) * dtH))) continue;
     if (n.snapshots) dc.alerts.unshift({ h: dc.simH, level: 'warning', kind: 'backup', node: n.id, text: `A bad change wiped data on ${n.id}; rolled back from a snapshot.` });
     else loseData(n, 'a bad change deleted it and there were no snapshots');
   }
-  if (force.siteLoss || rand() < 1 - Math.exp(-(k.siteLossPerYear / 8766) * dtH)) {
-    if (dc.offsite) dc.alerts.unshift({ h: dc.simH, level: 'serious', kind: 'backup', text: 'A fire in the hall destroyed the stored data; everything was restored from the offsite copy.' });
-    else for (const n of dc.nodes) if (!n.dataLost) loseData(n, 'a fire destroyed the site\'s data and there was no offsite copy');
+  if (force.siteLoss || rand() < 1 - Math.exp(-((k.siteLossPerYear * diff.failureMult) / 8766) * dtH)) {
+    for (const n of dc.nodes) if (!n.dataLost) loseData(n, dc.offsite ? 'a fire in the hall destroyed the stored data' : 'a fire destroyed the site\'s data and there was no offsite copy');
   }
   let darkFrac = 0;
-  const cutMin = force.powerCutMin ?? (rand() < 1 - Math.exp(-(k.powerCutsPerYear / 8766) * dtH) ? -Math.log(1 - rand()) * k.powerCutMeanMin : 0);
+  const cutMin = force.powerCutMin ?? (rand() < 1 - Math.exp(-((k.powerCutsPerYear * diff.failureMult) / 8766) * dtH) ? -Math.log(1 - rand()) * k.powerCutMeanMin : 0);
   if (cutMin > 0) {
     const runtime = upsRuntimeMin(k, dc.upsUnits, wallW);
     if (runtime >= cutMin) dc.alerts.unshift({ h: dc.simH, level: 'warning', kind: 'power', text: `Utility power cut for ${Math.round(cutMin)} min; the UPS carried the site (runtime ${Math.round(Math.min(runtime, 9999))} min at this load).` });
@@ -284,7 +320,7 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
   for (const r of ROLES) {
     if (util[r] > k.churnAbove) {
       dc.overH[r] += dtH;
-      if (dc.overH[r] >= k.churnAfterH) {
+      if (dc.overH[r] >= k.churnAfterH * diff.patienceMult) {
         dc.overH[r] = 0;
         const mine = dc.customers.filter((c) => c.role === r).sort((a, b) => b.size - a.size);
         if (mine.length) {
