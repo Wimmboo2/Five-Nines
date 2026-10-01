@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { validateAll, buildAndCheck, deniedTerms, allParts, dev, ROOT } from '../scripts/dev-data.js';
+import { buildGameData } from '../src/data/build.js';
 import { validateDevTree, validateShipped, findDeniedTerms } from '../src/data/validate.js';
 
 describe('dev data (data-dev)', () => {
@@ -9,14 +10,21 @@ describe('dev data (data-dev)', () => {
     expect(validateAll()).toEqual([]);
   });
 
-  it('every branded realRef is covered by the brand denylist', () => {
-    // realRefs starting with "Generic:" describe unbranded tracker baskets.
+  it('every model and engine realRef is covered by the brand denylist (hardware names are allowed)', () => {
     const curated = JSON.parse(readFileSync(path.join(ROOT, 'data-dev/brand-denylist.json'), 'utf8')).terms;
-    const uncovered = [...allParts(), ...dev.models, ...dev.engines]
-      .filter((p) => !p.realRef.startsWith('Generic:'))
+    const uncovered = [...dev.models, ...dev.engines]
       .filter((p) => findDeniedTerms(p.realRef, curated).length === 0)
       .map((p) => p.realRef);
     expect(uncovered).toEqual([]);
+  });
+
+  it('every shipped hardware part shows a real name from the name map', () => {
+    const game = buildGameData(dev);
+    const parts = Object.values(game.parts).flat();
+    const missing = parts.filter((p) => !dev.hardwareNames[p.id]).map((p) => p.id);
+    expect(missing).toEqual([]);
+    for (const p of parts) expect(p.displayName).toBe(dev.hardwareNames[p.id]);
+    expect(Object.values(dev.hardwareNames).some((n) => n.startsWith('Generic'))).toBe(false);
   });
 });
 
@@ -66,6 +74,7 @@ describe('denied-term matching', () => {
   it('allows the engine and model names the user approved, and still denies everything else', () => {
     const terms = deniedTerms();
     for (const t of ['llama.cpp', 'vLLM', 'SGLang', 'Qwen', 'Llama', 'gpt-oss', 'Proxmox']) expect(terms).not.toContain(t);
-    for (const t of ['NVIDIA', 'GeForce', 'OpenAI', 'Hugging Face', 'Minecraft', 'Proxmox Server Solutions', 'Mojang', 'Samsung']) expect(terms).toContain(t);
+    for (const t of ['NVIDIA', 'GeForce', 'Samsung', 'Supermicro', 'NVIDIA GeForce RTX 4090']) expect(terms).not.toContain(t);
+    for (const t of ['OpenAI', 'Hugging Face', 'Minecraft', 'Proxmox Server Solutions', 'Mojang', 'Microsoft']) expect(terms).toContain(t);
   });
 });

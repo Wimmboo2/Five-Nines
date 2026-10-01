@@ -1,5 +1,5 @@
 // Turns dev data (full provenance, real names) into shipped game data
-// (generic source labels, fake names only). Pure function.
+// (generic source labels; real hardware, model and engine names, no source titles or URLs). Pure function.
 
 import { isTaggedLike } from './validate.js';
 
@@ -33,7 +33,9 @@ export function stripTree(node, label) {
 
 export function buildGameData(dev, { includeCalibrationHardware = false } = {}) {
   const label = makeLabeler(dev.sources, dev.SOURCE_LABELS);
-  const s = (x) => stripTree(x, label);
+  // Hardware shows its real product name (data-dev/hardware-names.js); ids stay.
+  const named = (list) => list.map((p) => (dev.hardwareNames?.[p.id] ? { ...p, displayName: dev.hardwareNames[p.id] } : p));
+  const s = (x) => stripTree(Array.isArray(x) && x[0]?.category ? named(x) : x, label);
   const gpus = includeCalibrationHardware ? [...dev.gpus, ...dev.calibrationGpus] : dev.gpus;
   return {
     schemaVersion: 1,

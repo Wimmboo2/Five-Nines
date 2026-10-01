@@ -18,11 +18,18 @@ function tempDist(files) {
 describe('dist brand check', () => {
   const terms = deniedTerms();
 
-  it('fails when a real product name is planted in the bundle', () => {
-    const dir = tempDist({ 'assets/index.js': 'const gpu = "NVIDIA GeForce RTX 4090";', 'index.html': '<html></html>' });
+  it('passes real hardware names (allowed since 2026-10-01)', () => {
+    const dir = tempDist({ 'assets/index.js': 'const gpu = "NVIDIA GeForce RTX 4090"; const cpu = "AMD EPYC 9555";', 'index.html': '<html></html>' });
     const hits = scanDir(dir, terms);
     rmSync(dir, { recursive: true });
-    expect(hits.map((h) => h.term)).toEqual(expect.arrayContaining(['NVIDIA', 'GeForce', 'RTX']));
+    expect(hits).toEqual([]);
+  });
+
+  it('fails on a planted Mojang or Microsoft name', () => {
+    const dir = tempDist({ 'assets/index.js': 'credit("Mojang"); os("Microsoft")' });
+    const hits = scanDir(dir, terms);
+    rmSync(dir, { recursive: true });
+    expect(hits.map((h) => h.term)).toEqual(expect.arrayContaining(['Mojang', 'Microsoft']));
   });
 
   it('fails on a planted company or game name that is still denied', () => {

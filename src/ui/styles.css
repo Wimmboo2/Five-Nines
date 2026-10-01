@@ -120,3 +120,4 @@ button.danger { background: #a93226; }
 .care-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .difficulty { margin-left: 12px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; text-transform: capitalize; color: var(--muted); }
 .difficulty { margin-left: 12px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; text-transform: capitalize; color: var(--muted); }
+.footer { padding: 16px 20px 24px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); margin-top: 24px; }

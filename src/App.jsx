@@ -215,6 +215,9 @@ export default function App() {
           run={run} broken={broken} onRunTest={runTest} onReplace={() => update({ broken: null })} onDeliver={deliver}
           onProgress={(t) => update((g) => (g.run ? { run: { ...g.run, positionS: t } } : {}))} />}
       </main>
+      <footer className="footer" data-testid="footer">
+        Five Nines is an independent fan project, not affiliated with or endorsed by any hardware company. All trademarks belong to their owners.
+      </footer>
     </div>
   );
 }

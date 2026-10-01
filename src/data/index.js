@@ -1,5 +1,5 @@
 // Game-side data access. The game imports ONLY the generated file, which has
-// fake names and generic source labels (see scripts/build-game-data.js).
+// real product names and generic source labels (see scripts/build-game-data.js).
 import gameData from '../generated/game-data.json';
 import { resolve } from './build.js';
 
