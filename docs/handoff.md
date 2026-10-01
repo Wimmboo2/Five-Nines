@@ -1,6 +1,14 @@
 # Five Nines: session handoff (2026-09-30)
 
-> **Update (later the same day):** the stage 4-5 fixes (§7 step 1) are done (commit "Stage 4-5 fixes"). Calibration now **passes** the tolerance: held-out median 11.4%, worst 50.7%, after reference-only rows plus two new fitted constants. See `docs/calibration.md` "Update: tolerance pass" and `docs/decisions.md`. Where §2, §6 and §9 disagree with this, this note is current.
+> **Update 2026-10-01: stages 6 and 7 are done** (commits "Stage 6: in-game browser, config apps, cloud/VM sim" and "Stage 7: stress test, delivery, payout, xp, levels"). This note is current where it disagrees with §2-§10 below, which describe the state before stage 6.
+>
+> - **Stage 6:** Software tab with four config apps (OS, inference, game server, VMs), every setting fed into `evaluateBuild`; Browser tab with 8 guide pages (`src/content/pages.js`, sources in `docs/research/software.md`); `src/sim/vm.js` (VM fleet on KVM); game-server distances + server software in `src/sim/gameserver.js`; OS compatibility in `src/sim/evaluate.js`; cloud job type and level gates in `src/jobs/` (`levels.js`, `generate.js`); `defaultSoftware` became the generator-only `referenceSoftware`. Calibration (stage 3 follow-up) passes: held-out median 11.4%, worst 50.7%.
+> - **Stage 7:** `src/game/player.js` (money/xp/level in memory), `src/game/flow.js` (stress run keyed to build+software, delivery gate), `src/ui/StressTest.jsx` (60x playback with live gauges, Skip), `src/ui/DeliveryResult.jsx`, top-bar money/level, locked-features note.
+> - **Names:** Proxmox VE shown by name; the block-building game stays fake; its server fork is "Optimized fork".
+> - **Pending sign-off:** all values under "Stage 6 values..." and "Stage 7 values..." in `docs/decisions.md`, plus the older game-design list.
+> - **Next:** stage 8 (localStorage saves), stage 9 (personal datacenter, backups), stage 10 (difficulty). Each needs its own question round.
+> - **Known gaps:** no datacenter-tier cloud jobs; GPU passthrough into VMs not simulated; game-server tick costs are estimates; the stress test is precomputed then played back.
+
 
 Tags used below:
 - **[V]** = verified this session: I ran it or opened the source.

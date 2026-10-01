@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { evaluateForJob, scoreDelivery, measure } from '../jobs/index.js';
 import { simSoftware } from './softwareState.js';
+import { StressTest } from './StressTest.jsx';
+import { canDeliver } from '../game/flow.js';
 import { installed, removeOne, simBuild } from './buildState.js';
 import { usd, num, gb } from './format.js';
 
@@ -8,7 +10,7 @@ function Check({ ok, children }) {
   return <li className={ok == null ? '' : ok ? 'ok' : 'bad'}><span className="dot" />{children}</li>;
 }
 
-export function BuildScreen({ catalog, idx, job, build, setBuild, software }) {
+export function BuildScreen({ catalog, idx, job, build, setBuild, software, run, broken, onRunTest, onReplace, onDeliver }) {
   const rows = installed(idx, build);
   const result = useMemo(() => {
     if (!job) return null;
@@ -46,6 +48,20 @@ export function BuildScreen({ catalog, idx, job, build, setBuild, software }) {
         {!job && <p>Take a job from the job board to see results against its targets.</p>}
         {job && result && <Results job={job} idx={idx} {...result} />}
       </section>
+
+      {job && result && (
+        <section className="card" data-testid="stress-card">
+          <h2>Stress test and delivery</h2>
+          <p className="muted">One simulated hour of full load at 60x speed. If anything fails, fix it and the whole test starts over.</p>
+          {broken && <p className="bad-text" data-testid="broken-part">{broken.label} is broken. <button className="small" onClick={onReplace} data-testid="replace-part">Replace it</button></p>}
+          <button onClick={() => onRunTest(result.ev, simSoftware(software))} disabled={!!broken} data-testid="run-test">
+            {run ? 'Run the test again from the start' : 'Run stress test'}</button>
+          {run && <StressTest key={run.seed} run={run} />}
+          <button className="deliver" disabled={!canDeliver(run, simBuild(build), simSoftware(software)) || !!broken}
+            onClick={() => onDeliver(result.ev, result.score)} data-testid="deliver">Deliver to client</button>
+          {run && !canDeliver(run, simBuild(build), simSoftware(software)) && run.result.completed && <p className="muted">The build or software changed since the test: run it again.</p>}
+        </section>
+      )}
     </div>
   );
 }
@@ -106,7 +122,7 @@ function Results({ job, idx, ev, m, ms, score }) {
             {ev.power.psuModules > 1 && <li><span>Power modules</span><b>{ev.power.psuModules} installed, {ev.power.psuSpareModules} spare</b></li>}
             <li><span>Noise at 1 m</span><b>{num(ev.noise.at1mDBA, 1)} dBA</b></li>
           </ul>
-          {score && <p className="muted">Projected score if delivered as is: {num(score.score, 0)} / 100 ({score.satisfaction}). Delivery and payout are not in this build yet.</p>}
+          {score && <p className="muted">Projected score if delivered as is: {num(score.score, 0)} / 100 ({score.satisfaction}).</p>}
           <p className="muted small">Evaluated in {num(ms, 1)} ms.</p>
         </>
       )}

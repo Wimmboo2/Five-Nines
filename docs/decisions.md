@@ -109,3 +109,10 @@ Simplest reasonable values where the user's answers and the research left a numb
 - Cloud clients: "Hobbyist tinkerer" and "Small law office" also take cloud jobs; new "Small VPS host" (server tier, performance 40 / budget 30 / noise 5 / power 15 / temperature 10).
 - VM targets: per-VM CPU and IOPS targets = reference result x `GEN.perfTargetOfRef` (same slack as inference), CPU rounded to 0.1 reference cores, IOPS to 1000.
 - On the hypervisor OS only VM hosting is simulated (inference or game servers there are a config error), since GPU passthrough inside VMs isn't modeled.
+
+### Stage 7 values picked by Claude, pending sign-off
+- Starting money 0 (`newPlayer` in src/game/player.js). Parts are paid from the client's budget, so the player's money is only fees earned.
+- Replacing a part that failed in the stress test costs nothing extra: "Replace it" marks it fixed, then the whole test reruns from 0 with a new seed (`job.seed x 1000 + attempt`).
+- XP per delivery = job xp x score/100 rounded; money = payout x payoutMultiplier rounded (existing SCORING rules).
+- The stress test is computed in full when started and then played back at 60x (one sample per simulated minute, one per real second). Same results as running it live, since the sim is deterministic per seed.
+- Delivered jobs leave the board; the board rerolls when the level changes (new tiers/types unlock).
