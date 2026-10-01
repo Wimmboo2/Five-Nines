@@ -21,7 +21,7 @@
 
 ## Project rules added by the user
 
-- **No real product names in the shipped bundle.** Real names (`realRef`, source titles/URLs, manufacturer names, engine/model real names until the user allows them) live only in `data-dev/`. The game imports only `src/generated/game-data.json`, which `scripts/build-game-data.js` writes with provenance stripped and generic source labels. `npm run build` runs `scripts/check-dist-brands.js` and fails on any real name in `dist/`.
+- **Real names (decision 2026-10-01, supersedes the brief's fake hardware names):** hardware shows real product names from `data-dev/hardware-names.js` (part ids never change); models and engines use real names. Still blocked in `dist/` by `scripts/check-dist-brands.js`: Mojang, Microsoft, Minecraft (stays "block-building game"), PaperMC, Proxmox Server Solutions, Hugging Face and model-company names (`data-dev/brand-denylist.json`). Source titles/URLs and `realRef` stay dev-only; the game shows generic source labels. No logos or brand imagery; keep the trademark footer. Don't switch hardware back to fake names.
 - **Tensor parallel is not layer split.** Sequential stages (layer split, CPU offload) add their times. A TP group's time is its slowest shard plus the all-reduce cost.
 - **Cloud/VM hosting is a workload,** but its simulation model is not designed until the user answers the checkpoint question. Don't invent one.
 - Don't report the example job as generated end to end until the job generator exists (stage 4), or difficulty as working until stage 10.

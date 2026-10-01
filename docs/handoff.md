@@ -1,5 +1,7 @@
 # Five Nines: session handoff (2026-09-30)
 
+> **Update 2026-10-01 (after tuning pass 1): real hardware names.** All hardware now shows real product names (map in `data-dev/hardware-names.js`, ids unchanged); the brand check only blocks Mojang/Microsoft/Minecraft/PaperMC/Proxmox Server Solutions/Hugging Face and model-company names. Trademark footer in the app. This replaces every "hardware keeps fake names" statement below (decisions.md, 2026-10-01). PR: Wimmboo2/Five-Nines#1.
+>
 > **Update 2026-10-01 (final): stage 10 is done** (commits "Stage 10a" and "Stage 10b"). All 10 stages of the build order exist. This block is the current state; §2-§10 below describe the project before stage 6.
 >
 > - **Difficulty:** `src/game/difficulty.js` + `constants.difficulty` (user-approved table), picked at New game, locked per save (save v3). Applies to jobs and the datacenter.

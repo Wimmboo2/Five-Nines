@@ -25,11 +25,11 @@ async function main() {
   const dist = path.join(ROOT, 'dist');
   const hits = scanDir(dist, deniedTerms());
   if (hits.length) {
-    console.error('brand check FAILED: real names found in dist/');
+    console.error('brand check FAILED: blocked names found in dist/');
     for (const h of hits) console.error(`  - ${path.relative(ROOT, h.file)}: "${h.term}" x${h.count}`);
     process.exit(1);
   }
-  console.log('brand check passed: no real names in dist/');
+  console.log('brand check passed: no blocked names in dist/');
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) main();

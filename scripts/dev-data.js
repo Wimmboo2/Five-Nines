@@ -43,7 +43,9 @@ export function validateAll() {
 // Every name that must never ship: the curated list plus every realRef.
 export function deniedTerms() {
   const curated = JSON.parse(readFileSync(path.join(ROOT, 'data-dev/brand-denylist.json'), 'utf8')).terms;
-  const realRefs = [...allParts(), ...dev.models, ...dev.engines].map((x) => x.realRef);
+  // Hardware names are allowed since 2026-10-01 (docs/decisions.md); only model
+  // and engine realRefs are still checked (most of those are allowlisted).
+  const realRefs = [...dev.models, ...dev.engines].map((x) => x.realRef);
   const allow = allowedTerms();
   return [...new Set([...curated, ...realRefs])].filter((t) => !allow.has(t));
 }
