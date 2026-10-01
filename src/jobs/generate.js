@@ -29,8 +29,11 @@ export const GEN = {
   noiseLimitOverRefDB: [2, 6], // noise limit = reference level + this
   tempLimitOverRefC: [1, 3], // room temperature limit = reference room temp + this
   budgetOfRefCost: [1.1, 1.4], // budget = reference build cost x this
-  feeOfBudget: [0.12, 0.2], // payout = budget x this (the player's fee)
-  baseXp: { homelab: 100, server: 300, datacenter: 1000 },
+  // payout = budget x this (the player's fee), per tier. Tuning pass 1: was
+  // [0.12, 0.2] for every tier, which made a datacenter job pay ~100x a homelab
+  // one. Pending sign-off.
+  feeOfBudget: { homelab: [0.12, 0.2], server: [0.08, 0.12], datacenter: [0.03, 0.05] },
+  baseXp: { homelab: 100, server: 300, datacenter: 500 }, // datacenter was 1000 (tuning pass 1, pending)
   mcTps: 20, // Minecraft runs 20 ticks per second when not lagging (minecraft.wiki: Tick)
   maxTries: 12,
 };
@@ -185,7 +188,7 @@ export function generateJob(catalog, opts = {}) {
       client: { id: client.id, name: client.name },
       priorities: { ...client.priorities },
       workload, targets, budgetUSD, room,
-      payoutUSD: roundTo(budgetUSD * between(rng, GEN.feeOfBudget) * d.feeMult, 10),
+      payoutUSD: roundTo(budgetUSD * between(rng, GEN.feeOfBudget[tier]) * d.feeMult, 10),
       xp: GEN.baseXp[tier],
       // Proof of solvability. Kept for tests and debugging; the UI does not show it.
       reference: { build: ref.build, costUSD: ref.costUSD, software: ref.software },

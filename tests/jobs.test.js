@@ -162,4 +162,18 @@ describe("the brief's example job (stage 10)", () => {
     expect(ev.failures).toEqual([]);
     expect(scoreDelivery(ev, j).score).toBe(100);
   });
+  it('also with a ~30B model (seed 1902: a 31B model at 262k context)', () => {
+    const j = generateJob(catalog, { seed: 1902, idx, tier: 'homelab', level: 3 });
+    const m = idx.models.get(j.workload.inference.model);
+    expect(j.type).toBe('mixed');
+    expect(m.totalParams).toBeGreaterThan(30e9);
+    expect(m.totalParams).toBeLessThanOrEqual(32e9);
+    expect(j.workload.inference.contextLength).toBe(262144);
+    expect(j.targets.tokPerSec.value).toBeGreaterThanOrEqual(20);
+    expect(j.targets.powerLimitW).toBeLessThan(1000);
+    expect(j.targets.noiseLimitDBA).not.toBeNull();
+    expect(j.room.archetype).toBe('room-closet');
+    const ev = evaluateForJob(catalog, j, j.reference.build, j.reference.software, { idx });
+    expect(scoreDelivery(ev, j).score).toBe(100);
+  });
 });

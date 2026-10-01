@@ -53,7 +53,10 @@ export function failureRates(idx, build, state) {
   if (build.psu) {
     const psu = effectivePsu(idx, build);
     const internalC = state.roomC + r.psuInternalRiseC + state.psuLoadPct * r.psuRisePerLoadPct;
-    out.push({ key: 'psu', label: `PSU ${psu.displayName}`, afr: (r.psuAfrPct / 100) * arrhenius(idx, internalC, r.psuReferenceTempC) });
+    // Hot-swap modules each fail on their own: the group's rate is per module x
+    // modules (tuning pass 1). A single ATX unit is one module.
+    const perModule = (r.psuAfrPct / 100) * arrhenius(idx, internalC, r.psuReferenceTempC);
+    out.push({ key: 'psu', label: psu.modules > 1 ? `PSU module ${idx.parts.get(build.psu).displayName}` : `PSU ${psu.displayName}`, afr: perModule * psu.modules });
   }
   const fanTemp = state.inletC;
   for (const [i, f] of state.fans.entries()) {

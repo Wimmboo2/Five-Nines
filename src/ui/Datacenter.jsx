@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { usd, num } from './format.js';
-import { ROLES, ROLE_UNITS } from '../dc/model.js';
+import { ROLES, ROLE_UNITS, sizeClass, tokenPriceFor } from '../dc/model.js';
 import { openCost, rackUnitsUsed, partPrice } from '../dc/datacenter.js';
 import { RAID_LEVELS, driveCount, nodeDataTB } from '../dc/failures.js';
 import { referenceCandidates } from '../jobs/templates.js';
@@ -149,7 +149,7 @@ export function Datacenter({ catalog, idx, dc, money, level, paused, onOpen, onB
             const st = g ? statusOf(g.util, k) : 'ok';
             return (
               <article key={n.id} className={`card node st-${st}`} data-testid="dc-node">
-                <h4>{n.id} · {ROLE_NAMES[n.role]}{n.model ? ` · ${idx.models.get(n.model).displayName}` : ''}</h4>
+                <h4>{n.id} · {ROLE_NAMES[n.role]}{n.model ? ` · ${idx.models.get(n.model).displayName} (${sizeClass(idx, n.model)} class, $${tokenPriceFor(k, sizeClass(idx, n.model)).toFixed(2)}/M tokens)` : ''}</h4>
                 <div className="muted">{idx.parts.get(n.build.chassis)?.displayName} in {n.rackId}{n.build.gpus.length ? ` · ${n.build.gpus.length}x ${idx.parts.get(n.build.gpus[0].part).displayName}` : ''}</div>
                 {g && !g.ok && <p className="bad-text">Not serving: {g.error}</p>}
                 {g && g.ok && (
@@ -178,8 +178,8 @@ export function Datacenter({ catalog, idx, dc, money, level, paused, onOpen, onB
           <h2>Customers</h2>
           <table className="parts-table" data-testid="dc-customer-table"><tbody>
             {dc.customers.slice(0, 40).map((c) => {
-              const st = statusOf(last?.util[c.role] ?? 0, k);
-              return <tr key={c.id}><td>{ROLE_NAMES[c.role]}</td><td>{num(c.size * (c.spike?.mult ?? 1))} {ROLE_UNITS[c.role]}{c.spike ? ' (spiking)' : ''}</td>
+              const st = statusOf((c.role === 'inference' ? last?.buckets?.[`inference:${c.cls ?? 'small'}`]?.util : last?.util[c.role]) ?? 0, k);
+              return <tr key={c.id}><td>{ROLE_NAMES[c.role]}{c.cls ? ` (${c.cls} model)` : ''}</td><td>{num(c.size * (c.spike?.mult ?? 1))} {ROLE_UNITS[c.role]}{c.spike ? ' (spiking)' : ''}</td>
                 <td style={{ color: STATUS[st].color }}>{STATUS[st].icon} {st === 'ok' || st === 'busy' ? 'Served' : STATUS[st].label}</td></tr>;
             })}
           </tbody></table>

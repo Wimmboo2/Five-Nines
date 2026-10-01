@@ -3,7 +3,7 @@
 // from a seeded generator whose state is part of the save, so a reload
 // continues the exact same sequence.
 
-import { hallRoom, nodeProfile, nodeGauges, ROLES } from './model.js';
+import { hallRoom, nodeProfile, nodeGauges, ROLES, sizeClass, tokenPriceFor } from './model.js';
 import { roomStep } from '../sim/thermal.js';
 import { buildCost } from '../jobs/cost.js';
 import { allFans } from '../sim/power.js';
@@ -84,8 +84,12 @@ export function buyNic(idx, dc, nodeId, partId) {
 const mapNode = (dc, id, f) => ({ ...dc, nodes: dc.nodes.map((n) => (n.id === id ? f(n) : n)) });
 // Down: data gone, restoring from offsite, a core part dead, or more dead
 // drives than the RAID level tolerates.
+// PSU modules: down only when the surviving modules can't carry the node's
+// full load (N+1 survives one dead module, N+2 two).
+export const psuAlive = (n) => Math.max(1, n.build.psuCount ?? 1) - n.dead.filter((d) => d.key === 'psu').length;
 const isDown = (n, nowH = -Infinity) => n.dataLost || (n.restoringUntilH != null && n.restoringUntilH > nowH)
-  || n.dead.some((d) => !d.key.startsWith('fan:') && !d.key.startsWith('storage:'))
+  || n.dead.some((d) => !d.key.startsWith('fan:') && !d.key.startsWith('storage:') && d.key !== 'psu')
+  || psuAlive(n) < (n.psuRequired ?? Math.max(1, n.build.psuCount ?? 1))
   || (n.deadDrives ?? 0) > RAID_LEVELS[n.raid ?? 'none'].tolerates;
 
 export function partPrice(idx, build, key) {
@@ -169,6 +173,10 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
   // Capacity per node and per workload.
   const profiles = dc.nodes.map((n) => {
     const p = nodeProfile(catalog, idx, n, hall);
+    // Modules needed to carry the node at full load (wall watts, conservative).
+    const psuPart = n.build.psu ? idx.parts.get(n.build.psu) : null;
+    n.psuRequired = psuPart ? Math.max(1, Math.ceil(p.fullW / psuPart.ratedW)) : 1;
+    n.down = isDown(n, dc.simH);
     if (!n.down) return p;
     const core = n.dead.find((d) => !d.key.startsWith('fan:') && !d.key.startsWith('storage:'));
     const why = n.dataLost ? 'its data was lost; replace the drives and restore'
@@ -179,13 +187,23 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
   });
   const served = Object.fromEntries(ROLES.map((r) => [r, dc.nodes.some((n, i) => n.role === r && profiles[i].ok)]));
 
-  // New customers, spikes, spike expiry.
-  for (const role of ROLES) {
-    if (!served[role]) continue;
-    const rate = k.arrivalsPerHourAt50Rep * (dc.reputation / 50) * (1 + k.growthPerDay * diff.demandMult) ** (dc.simH / 24) * dtH;
+  // Buckets: game servers, VMs, and one inference bucket per model size class
+  // (tuning pass 1: customers ask for a size class and pay by it).
+  const bucketOfNode = (n) => (n.role === 'inference' ? `inference:${sizeClass(idx, n.model)}` : n.role);
+  const bucketOfCust = (c) => (c.role === 'inference' ? `inference:${c.cls ?? 'small'}` : c.role);
+  const roleOf = (bk) => bk.split(':')[0];
+  const servedBuckets = [...new Set(dc.nodes.map((n, i) => (profiles[i].ok ? bucketOfNode(n) : null)).filter(Boolean))].sort();
+
+  // New customers: growth is linear and capped by a market ceiling, and even
+  // at reputation 0 a trickle still arrives (reputationArrivalFloor).
+  const growth = Math.min(k.marketCeiling, 1 + (k.growthPerDay * diff.demandMult * dc.simH) / 24);
+  const repFactor = Math.max(dc.reputation, k.reputationArrivalFloor) / 50;
+  for (const bk of servedBuckets) {
+    const role = roleOf(bk);
+    const rate = k.arrivalsPerHourAt50Rep * repFactor * growth * dtH;
     if (rand() < Math.min(1, rate)) {
       const [lo, hi] = role === 'inference' ? [k.inferenceSizeMin, k.inferenceSizeMax] : role === 'game' ? [k.gameSizeMin, k.gameSizeMax] : [k.vmSizeMin, k.vmSizeMax];
-      dc.customers.push({ id: `c-${dc.nextId++}`, role, size: Math.round(lo + (hi - lo) * rand()), since: dc.simH, spike: null });
+      dc.customers.push({ id: `c-${dc.nextId++}`, role, ...(role === 'inference' ? { cls: bk.split(':')[1] } : {}), size: Math.round(lo + (hi - lo) * rand()), since: dc.simH, spike: null });
     }
   }
   for (const c of dc.customers) if (c.spike && c.spike.untilH <= dc.simH) c.spike = null;
@@ -193,60 +211,74 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
     const c = dc.customers[Math.floor(rand() * dc.customers.length)];
     if (!c.spike) {
       c.spike = { mult: 1 + (k.spikeMultMin + (k.spikeMultMax - k.spikeMultMin) * rand() - 1) * diff.demandMult, untilH: dc.simH + k.spikeHoursMin + (k.spikeHoursMax - k.spikeHoursMin) * rand() };
-      dc.alerts.unshift({ h: dc.simH, level: 'warning', text: `A ${c.role === 'game' ? 'game-server' : c.role === 'vm' ? 'VM' : 'inference'} customer's demand spiked x${c.spike.mult.toFixed(1)}.` });
+      dc.alerts.unshift({ h: dc.simH, level: 'warning', text: `A ${c.role === 'game' ? 'game-server' : c.role === 'vm' ? 'VM' : `${c.cls ?? 'small'}-model inference`} customer's demand spiked x${c.spike.mult.toFixed(1)}.` });
     }
   }
+
+  // Demand and capacity per bucket.
+  const rh = rhythm(k, dc.simH);
+  const allBuckets = [...new Set([...servedBuckets, ...dc.customers.map(bucketOfCust)])].sort();
+  const demandB = Object.fromEntries(allBuckets.map((bk) => [bk, dc.customers.filter((c) => bucketOfCust(c) === bk).reduce((x, c) => x + c.size * (c.spike?.mult ?? 1), 0) * rh]));
+  const capB = Object.fromEntries(allBuckets.map((bk) => [bk, dc.nodes.reduce((x, n, i) => x + (bucketOfNode(n) === bk && profiles[i].ok ? profiles[i].capacity : 0), 0)]));
+  const shareOf = (n, i) => (profiles[i].ok && capB[bucketOfNode(n)] > 0 ? profiles[i].capacity / capB[bucketOfNode(n)] : 0);
 
   // Site power: if the nodes want more than the utility feed or a rack's PDUs
   // can supply, every node is held back to fit.
-  const rh = rhythm(k, dc.simH);
-  const demand = Object.fromEntries(ROLES.map((r) => [r, dc.customers.filter((c) => c.role === r).reduce((a, c) => a + c.size * (c.spike?.mult ?? 1), 0) * rh]));
-  const capByRole = Object.fromEntries(ROLES.map((r) => [r, dc.nodes.reduce((a, n, i) => a + (n.role === r && profiles[i].ok ? profiles[i].capacity : 0), 0)]));
   const firstPass = dc.nodes.map((n, i) => {
-    const p = profiles[i];
-    const u = p.ok && capByRole[n.role] > 0 ? demand[n.role] / capByRole[n.role] : 0;
-    return nodeGauges(idx, p, u, p.ok ? demand[n.role] * (p.capacity / Math.max(1e-9, capByRole[n.role])) : 0);
+    const bk = bucketOfNode(n);
+    const u = profiles[i].ok && capB[bk] > 0 ? demandB[bk] / capB[bk] : 0;
+    return nodeGauges(idx, profiles[i], u, demandB[bk] * shareOf(n, i));
   });
-  const wantW = firstPass.reduce((a, g) => a + g.wallW, 0);
+  const wantW = firstPass.reduce((x, g) => x + g.wallW, 0);
   let powerFactor = wantW > dc.utilityW ? dc.utilityW / wantW : 1;
   for (const r of dc.racks) {
-    const pduW = r.pdus.reduce((a, id) => a + idx.parts.get(id).capacityW, 0);
-    const rackW = dc.nodes.reduce((a, n, i) => a + (n.rackId === r.id ? firstPass[i].wallW : 0), 0);
+    const pduW = r.pdus.reduce((x, id) => x + idx.parts.get(id).capacityW, 0);
+    const rackW = dc.nodes.reduce((x, n, i) => x + (n.rackId === r.id ? firstPass[i].wallW : 0), 0);
     if (rackW > pduW) powerFactor = Math.min(powerFactor, pduW / rackW);
   }
 
-  // Utilization per workload after the power limit; VMs are limited by
-  // whichever of vCPU, RAM or IOPS runs out first.
-  const util = {};
-  for (const r of ROLES) {
-    const cap = capByRole[r] * powerFactor;
-    let u = cap > 0 ? demand[r] / cap : (demand[r] > 0 ? NO_CAPACITY : 0);
-    if (r === 'vm' && cap > 0) {
-      const ram = dc.nodes.reduce((a, n, i) => a + (n.role === 'vm' && profiles[i].ok ? profiles[i].ramCapGB : 0), 0) * powerFactor;
-      const iops = dc.nodes.reduce((a, n, i) => a + (n.role === 'vm' && profiles[i].ok ? profiles[i].iopsCap : 0), 0) * powerFactor;
-      u = Math.max(u, demand.vm * k.vmRamGBPerVcpu / Math.max(1e-9, ram), demand.vm * k.vmIopsPerVcpu / Math.max(1e-9, iops));
+  // Utilization per bucket after the power limit; VMs are limited by
+  // whichever of vCPU, RAM or IOPS runs out first, and every bucket by its
+  // nodes' network links.
+  const utilB = {};
+  for (const bk of allBuckets) {
+    const role = roleOf(bk);
+    const cap = capB[bk] * powerFactor;
+    let u = cap > 0 ? demandB[bk] / cap : (demandB[bk] > 0 ? NO_CAPACITY : 0);
+    const nodesB = dc.nodes.map((n, i) => [n, i]).filter(([n, i]) => bucketOfNode(n) === bk && profiles[i].ok);
+    if (role === 'vm' && cap > 0) {
+      const ram = nodesB.reduce((x, [, i]) => x + profiles[i].ramCapGB, 0) * powerFactor;
+      const iops = nodesB.reduce((x, [, i]) => x + profiles[i].iopsCap, 0) * powerFactor;
+      u = Math.max(u, demandB[bk] * k.vmRamGBPerVcpu / Math.max(1e-9, ram), demandB[bk] * k.vmIopsPerVcpu / Math.max(1e-9, iops));
     }
-    // Network: a workload is also overloaded when its nodes' links are full.
-    const nodesR = dc.nodes.map((n, i) => [n, i]).filter(([n, i]) => n.role === r && profiles[i].ok);
-    if (nodesR.length && cap > 0) {
-      const netCap = nodesR.reduce((a, [, i]) => a + profiles[i].netGbps * 1e9, 0);
-      const perUnit = r === 'inference' ? k.netBitsPerToken : r === 'game' ? k.netKbpsPerPlayer * 1e3 : k.netMbpsPerVcpu * 1e6;
-      u = Math.max(u, (demand[r] * perUnit) / netCap);
+    if (nodesB.length && cap > 0) {
+      const netCap = nodesB.reduce((x, [, i]) => x + profiles[i].netGbps * 1e9, 0);
+      const perUnit = role === 'inference' ? k.netBitsPerToken : role === 'game' ? k.netKbpsPerPlayer * 1e3 : k.netMbpsPerVcpu * 1e6;
+      u = Math.max(u, (demandB[bk] * perUnit) / netCap);
     }
-    util[r] = u;
+    utilB[bk] = u;
   }
+  // Per-workload summaries for the dashboard: the worst bucket of each role.
+  const util = Object.fromEntries(ROLES.map((r) => [r, Math.max(0, ...allBuckets.filter((bk) => roleOf(bk) === r).map((bk) => utilB[bk]))]));
+  const demand = Object.fromEntries(ROLES.map((r) => [r, allBuckets.filter((bk) => roleOf(bk) === r).reduce((x, bk) => x + demandB[bk], 0)]));
+  const capByRole = Object.fromEntries(ROLES.map((r) => [r, allBuckets.filter((bk) => roleOf(bk) === r).reduce((x, bk) => x + capB[bk], 0)]));
   const nodes = dc.nodes.map((n, i) => {
     const p = profiles[i];
-    const share = p.ok && capByRole[n.role] > 0 ? p.capacity / capByRole[n.role] : 0;
-    const g = nodeGauges(idx, p, p.ok ? util[n.role] : 0, demand[n.role] * share);
-    return { id: n.id, role: n.role, ok: p.ok, error: p.error, capacity: p.capacity * powerFactor, throttled: p.throttled, fullW: p.fullW, ...g };
+    const bk = bucketOfNode(n);
+    const g = nodeGauges(idx, p, p.ok ? utilB[bk] : 0, demandB[bk] * shareOf(n, i));
+    return { id: n.id, role: n.role, bucket: bk, ok: p.ok, error: p.error, capacity: p.capacity * powerFactor, throttled: p.throttled, fullW: p.fullW, ...g };
   });
-  const wallW = nodes.reduce((a, g) => a + g.wallW, 0);
+  const wallW = nodes.reduce((x, g) => x + g.wallW, 0);
 
-  // Money: customers pay for what they asked for, scaled down when service is slow.
-  const pay = { inference: (d) => (d * 3600 / 1e6) * k.priceUSDPerMTokens, game: (d) => d * k.priceUSDPerPlayerHour, vm: (d) => d * k.priceUSDPerVcpuHour };
+  // Money: customers pay for what they asked for, scaled down when service is
+  // slow. Inference pays by model size class (tokenPriceFor).
+  const pay = (bk, d) => {
+    const role = roleOf(bk);
+    if (role === 'inference') return (d * 3600 / 1e6) * tokenPriceFor(k, bk.split(':')[1]);
+    return role === 'game' ? d * k.priceUSDPerPlayerHour : d * k.priceUSDPerVcpuHour;
+  };
   let income = 0;
-  for (const r of ROLES) income += pay[r](demand[r]) * (util[r] > k.slowAbove ? 1 / util[r] : 1) * dtH;
+  for (const bk of allBuckets) income += pay(bk, demandB[bk]) * (utilB[bk] > k.slowAbove ? 1 / utilB[bk] : 1) * dtH;
   let powerCost = (wallW / 1000) * dtH * k.electricityUSDPerKWh;
 
   // ---- stage 9b: failures, power cuts, bad changes, site loss ----
@@ -286,6 +318,12 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
       if (n.deadDrives === lvl.tolerates + 1) loseData(n, `${ev.label} died with no ${n.raid === 'none' ? 'RAID' : 'redundancy left'}`);
       else if (n.deadDrives === lvl.tolerates && lvl.tolerates === 1 && rand() < (force.ure ?? rebuildUreRisk(idx, n))) loseData(n, `the rebuild after ${ev.label} hit an unrecoverable read error`);
       else dc.alerts.unshift({ h: dc.simH, level: 'serious', kind: 'part', node: n.id, text: `${ev.label} in ${n.id} died. ${n.raid.toUpperCase()} kept the data; replace the drive.` });
+    } else if (ev.key === 'psu' && (n.build.psuCount ?? 1) > 1) {
+      const alive = psuAlive(n);
+      const spare = alive - n.psuRequired;
+      dc.alerts.unshift({ h: dc.simH, level: spare >= 0 ? 'serious' : 'critical', kind: 'part', node: n.id,
+        text: spare >= 0 ? `A PSU module in ${n.id} died. ${alive} of ${n.build.psuCount} left, ${n.psuRequired} needed: still running (N+${spare}). Replace it to restore redundancy.`
+          : `A PSU module in ${n.id} died. ${alive} of ${n.build.psuCount} left can't carry the load (${n.psuRequired} needed): ${n.id} is down until it's replaced.` });
     } else {
       dc.alerts.unshift({ h: dc.simH, level: ev.key.startsWith('fan:') ? 'serious' : 'critical', kind: 'part', node: n.id, text: `${ev.label} in ${n.id} died.${ev.key.startsWith('fan:') ? '' : ` ${n.id} is down until it's replaced.`}` });
     }
@@ -316,22 +354,28 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
   const backupCost = ((dc.offsite ? dataTB * k.offsiteUSDPerTBMonth : 0)
     + dc.nodes.reduce((a, n) => a + (n.snapshots ? nodeDataTB(idx, n) * k.snapshotUSDPerTBMonth : 0), 0)) / (HOURS_PER_MONTH) * dtH;
 
-  // Overload: customers leave after sustained heavy overload; reputation follows.
-  for (const r of ROLES) {
-    if (util[r] > k.churnAbove) {
-      dc.overH[r] += dtH;
-      if (dc.overH[r] >= k.churnAfterH * diff.patienceMult) {
-        dc.overH[r] = 0;
-        const mine = dc.customers.filter((c) => c.role === r).sort((a, b) => b.size - a.size);
+  // Overload: customers leave after sustained heavy overload, per bucket;
+  // reputation recovers in proportion to the workloads that are not overloaded.
+  for (const bk of allBuckets) {
+    if (utilB[bk] > k.churnAbove) {
+      dc.overH[bk] = (dc.overH[bk] ?? 0) + dtH;
+      if (dc.overH[bk] >= k.churnAfterH * diff.patienceMult) {
+        dc.overH[bk] = 0;
+        const mine = dc.customers.filter((c) => bucketOfCust(c) === bk).sort((x, y) => y.size - x.size);
         if (mine.length) {
+          const r = roleOf(bk);
           dc.customers = dc.customers.filter((c) => c.id !== mine[0].id);
           dc.reputation = Math.max(0, dc.reputation - k.reputationLossPerChurn);
-          dc.alerts.unshift({ h: dc.simH, level: 'critical', text: `An overloaded ${r === 'vm' ? 'VM' : r === 'game' ? 'game-server' : 'inference'} customer left (${mine[0].size} ${r === 'inference' ? 'tok/s' : r === 'game' ? 'players' : 'vCPUs'}). Reputation -${k.reputationLossPerChurn}.` });
+          dc.alerts.unshift({ h: dc.simH, level: 'critical', text: `An overloaded ${r === 'vm' ? 'VM' : r === 'game' ? 'game-server' : `${bk.split(':')[1]}-model inference`} customer left (${mine[0].size} ${r === 'inference' ? 'tok/s' : r === 'game' ? 'players' : 'vCPUs'}). Reputation -${k.reputationLossPerChurn}.` });
         }
       }
-    } else dc.overH[r] = 0;
+    } else dc.overH[bk] = 0;
   }
-  if (ROLES.every((r) => util[r] <= k.slowAbove)) dc.reputation = Math.min(100, dc.reputation + k.reputationGainPerHour * dtH);
+  const active = allBuckets.filter((bk) => demandB[bk] > 0 || servedBuckets.includes(bk));
+  if (active.length) {
+    const okShare = active.filter((bk) => utilB[bk] <= k.slowAbove).length / active.length;
+    dc.reputation = Math.min(100, dc.reputation + k.reputationGainPerHour * okShare * dtH);
+  }
   if (powerFactor < 1) dc.alerts.unshift({ h: dc.simH, level: 'serious', text: `Power limit: the nodes want ${(wantW / 1000).toFixed(1)} kW, the site supplies ${(Math.min(dc.utilityW, wantW * powerFactor) / 1000).toFixed(1)} kW. Everything is running slower.` });
 
   // Hall air temperature from total heat and cooling (lumped room model).
@@ -344,7 +388,7 @@ export function stepDatacenter(catalog, idx, dc0, dtH = 1, opts = {}) {
   dc.totals.powerUSD += powerCost;
   dc.totals.backupUSD += backupCost;
   dc.totals.penaltyUSD += penalty;
-  dc.last = { upsRuntimeMin: upsRuntimeMin(k, dc.upsUnits, wallW), dataTB, backupCostPerH: backupCost / dtH, darkFrac, util, demand, capacity: Object.fromEntries(ROLES.map((r) => [r, capByRole[r] * powerFactor])), wallW, wantW, powerFactor, incomePerH: income / dtH, powerCostPerH: powerCost / dtH, nodes };
+  dc.last = { upsRuntimeMin: upsRuntimeMin(k, dc.upsUnits, wallW), dataTB, backupCostPerH: backupCost / dtH, darkFrac, util, demand, capacity: Object.fromEntries(ROLES.map((r) => [r, capByRole[r] * powerFactor])), buckets: Object.fromEntries(allBuckets.map((bk) => [bk, { util: utilB[bk], demand: demandB[bk], capacity: capB[bk] * powerFactor }])), wallW, wantW, powerFactor, incomePerH: income / dtH, powerCostPerH: powerCost / dtH, nodes };
   dc.history.push({ h: dc.simH, util: { ...util }, wallW, hallC: dc.hallC, net: (income - powerCost) / dtH });
   if (dc.history.length > k.historyPoints) dc.history.splice(0, dc.history.length - k.historyPoints);
   dc.alerts = dc.alerts.slice(0, 30);

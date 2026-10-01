@@ -4,21 +4,44 @@ Every value Claude picked or estimated that still needs your approval, consolida
 
 **Calibration (honest status):** 53 held-out benchmark cases, median error 11.4%, worst 50.7% (tolerance median <= 25%, worst <= 60%: PASS). 35 fit cases (median 4.7%). 19 more rows are reference-only (older engine builds and one data outlier, by your decision) and are not counted: their median error is 75.7%.
 
+## Tuning pass 1 (2026-10-01): changed values, all pending
+
+Measured headless before and after (same seeds). Every value below is a Claude proposal for you to approve or change.
+
+| Value | Before | After | Why |
+| --- | --- | --- | --- |
+| Demand growth | 2%/sim day, compounding (x19.5 after 1 real hour) | 1% of base per sim day, linear, capped at 3x (`growthPerDay` 0.01, new `marketCeiling` 3) | compounding exploded the arrival rate |
+| Arrival rate | 0.08/h per workload at rep 50 | 0.02/h per workload bucket (`arrivalsPerHourAt50Rep`) | one node filled in under a minute; now ~5-10 real minutes, first customer-losing overload at 106 sim h (1.8 real min) in the 3-node test, caused by a demand spike on the RAM-bound VM node |
+| Arrival floor | none (rep 0 = no arrivals) | arrivals use max(rep, 10) (`reputationArrivalFloor` 10, a fifth of the base) | death spiral |
+| Reputation recovery | +0.1/h only when no workload is overloaded | +0.1/h x share of workloads not overloaded (logic) | one overloaded workload blocked all recovery; after overload + adding capacity, rep went 11 -> 46 in 400 sim h (before: 2.5 -> 0) |
+| Overload, churn | per workload | per bucket (each inference size class separately) | size classes |
+| Token price | $0.20 per M tokens, same for every model | $0.80 per M for the small class, x (class reference size / 8B)^0.7: small $0.80, medium $2.11, large $3.65 (`priceUSDPerMTokens`, new `tokenPriceExponent` 0.7, `small/medium/largeRefActiveB` 8/32/70, `smallMaxActiveB` 12, `mediumMaxActiveB` 40) | smallest model always won; now per node at 90%: 8B $19/h, 32B $22/h, 70B $27/h |
+| Size classes | none | inference customers ask for small (<= 12B active), medium (<= 40B) or large; MoE counts active parameters (30B-A3B = 2.7B = small) | customers ask for a size class |
+| Game / VM price | $0.002 per player-hour, $0.02 per vCPU-hour | $0.008, $0.08 (x4) | 3-node DC netted $2.55/sim h (payback ~5.5 real h, far below one job fee); now $13.71/sim h (~$49k per real hour, payback ~1 real hour) |
+| VM network per vCPU | 50 Mbit/s | 10 Mbit/s (`netMbpsPerVcpu`) | onboard 1 GbE capped a 128-vCPU host at 20 vCPUs |
+| PSU modules | any PSU death took the node down | each hot-swap module fails on its own (group rate = per-module rate x modules); the node runs while modules alive >= modules needed for its full-load wall watts; alert shows N+k; replacing restores redundancy (logic) | redundant modules |
+| Job fee | 12-20% of budget for every tier | homelab 12-20%, server 8-12%, datacenter 3-5% (`GEN.feeOfBudget[tier]`) | median fee homelab $530, server $4,380 -> $2,680, datacenter $52,270 -> $13,070 (max $128k -> $32k) |
+| Datacenter job xp | 1000 | 500 (`GEN.baseXp.datacenter`) | level 5 came after 2 datacenter jobs; now ~4 |
+
+Electricity: unchanged ($0.12/kWh). It is about 6% of income (3 nodes at ~90%: income $2.72/h, power $0.17/h before; $13.87 / $0.17 after). The "$1-2 per sim hour" in the stage 9 report was income before electricity.
+
+Example job: raising the homelab 40 GB weight cap is not needed. Four ~30B models support 262k natively with 16.7-21.2 GB Q4 weights, and each has 16-28 passing homelab builds. The generator already rolls ~30B examples (seed 1034: Qwen3.8-27B, 28 tok/s target, 700 W; seed 1902: a 31B model at 262k, 600 W limit, closet, quiet). The earlier "all three were 8B" was a misread of truncated search output. Budgets are unchanged.
+
 ## 1. Economy
 
 | Value | Now | Affects | Where |
 | --- | --- | --- | --- |
 | Who pays for parts | the client's budget; your money is never spent on job parts | job economy | your stage 8 answer (logged) |
 | Starting money | $0 | early game | `newPlayer`, src/game/player.js |
-| Client fee | 12-20% of the budget (x difficulty fee) | job income | `GEN.feeOfBudget` |
-| Base xp per job | homelab 100, server 300, datacenter 1000 | level pace | `GEN.baseXp` |
+| Client fee | homelab 12-20%, server 8-12%, datacenter 3-5% of the budget (x difficulty fee) | job income | `GEN.feeOfBudget` |
+| Base xp per job | homelab 100, server 300, datacenter 500 | level pace | `GEN.baseXp` |
 | Payout / xp scaling | money x score/100 x (1 + bonus); xp x score/100 | rewards | `SCORING`, `scoreDelivery` |
 | Under-budget / under-power bonus | up to +6% / +4% (full at 30% under) | rewards | `SCORING.budgetBonusMax`, `powerBonusMax`, `bonusFullAt` |
 | Replacing a part that died in the stress test | free | stress test | src/game/flow.js, App |
 | Datacenter opening cost | rack + PDU at catalog price ($5,386) | L5 entry | `openCost` |
 | Utility feed | starts 20 kW; +20 kW per $25,000 | DC growth | `constants.datacenter.startUtilityW/utilityStepW/utilityStepUSD` |
 | Cooling unit | +20 air changes/h for $15,000 | DC growth | `coolingStepAch/coolingStepUSD` |
-| Customer prices | $0.20 per million tokens, $0.002 per player-hour, $0.02 per vCPU-hour | DC income | `priceUSDPerMTokens`, `priceUSDPerPlayerHour`, `priceUSDPerVcpuHour` |
+| Customer prices | see Tuning pass 1: $0.80 per million tokens (small class, x2.6 medium, x4.6 large), $0.008 per player-hour, $0.08 per vCPU-hour | DC income | `priceUSDPerMTokens`, `priceUSDPerPlayerHour`, `priceUSDPerVcpuHour` |
 | Electricity | $0.12/kWh | DC costs | `electricityUSDPerKWh` |
 | UPS unit price | $900 per 1 kW unit | DC costs | `upsUnitUSD` |
 | Snapshot cost | $6.95/TB/month (priced like offsite) | DC costs | `snapshotUSDPerTBMonth` |
@@ -28,8 +51,8 @@ Every value Claude picked or estimated that still needs your approval, consolida
 | Value | Now | Affects | Where |
 | --- | --- | --- | --- |
 | Time scale | 1 real second = 1 simulated hour (logged exception to the real-time rule) | everything in the DC | `simHoursPerRealSecond` |
-| Arrivals | 0.08 per hour per served workload at reputation 50, scaled by reputation/50 | customer flow | `arrivalsPerHourAt50Rep` |
-| Growth | +2% per simulated day (x difficulty) | long-run demand | `growthPerDay` |
+| Arrivals | 0.02 per hour per served workload bucket at reputation 50, scaled by max(reputation, 10)/50 | customer flow | `arrivalsPerHourAt50Rep`, `reputationArrivalFloor` |
+| Growth | +1% of base per simulated day, linear, max 3x (x difficulty) | long-run demand | `growthPerDay`, `marketCeiling` |
 | Daily rhythm | +/-30% over 24 h | load swings | `rhythmAmplitude`, `rhythmPeriodH` |
 | Spikes | 1%/h chance, x2-5 for 6-24 h (x difficulty) | surprise overload | `spikeChancePerHour`, `spikeMult*`, `spikeHours*` |
 | Customer sizes | 20-300 tok/s; 5-40 players; 2-16 vCPU (4 GB, 500 IOPS per vCPU) | load per customer | `*SizeMin/Max`, `vmRamGBPerVcpu`, `vmIopsPerVcpu` |

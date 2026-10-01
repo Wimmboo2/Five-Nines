@@ -144,3 +144,24 @@ export function nodeGauges(idx, p, u, demandUnits) {
   g.net = netBps / (p.netGbps * 1e9);
   return g;
 }
+
+// ---- tuning pass 1: inference pays by model size class ----
+import { layerActiveParams } from '../sim/model.js';
+
+// Parameters used per token (all of a dense model; shared + routed experts of an MoE).
+export function activeParamsB(idx, modelId) {
+  const m = idx.models.get(modelId);
+  return (layerActiveParams(m) * m.layers) / 1e9;
+}
+export const SIZE_CLASSES = ['small', 'medium', 'large'];
+export function sizeClass(idx, modelId) {
+  if (!modelId) return 'small';
+  const k = idx.constants.datacenter;
+  const a = activeParamsB(idx, modelId);
+  return a <= k.smallMaxActiveB ? 'small' : a <= k.mediumMaxActiveB ? 'medium' : 'large';
+}
+// Price per million tokens = base x (class reference size / 8B)^exponent.
+export function tokenPriceFor(k, cls) {
+  const ref = cls === 'large' ? k.largeRefActiveB : cls === 'medium' ? k.mediumRefActiveB : k.smallRefActiveB;
+  return k.priceUSDPerMTokens * (ref / k.smallRefActiveB) ** k.tokenPriceExponent;
+}
