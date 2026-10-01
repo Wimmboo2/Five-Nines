@@ -1,5 +1,7 @@
 # Five Nines: session handoff (2026-09-30)
 
+> **Update 2026-10-01 (latest): stage 9 is done** (commits "Stage 9a..." and "Stage 9b..."). Personal datacenter in `src/dc/` (`model.js` node capacity from evaluateBuild, `datacenter.js` state/purchases/hourly step, `failures.js` RAID/UPS/penalty/part failures, `clock.js` visible-only time), dashboard `src/ui/Datacenter.jsx`, Datacenter tab gated at level 5. Save version 2 (first migration). Every game-design number is in `constants.datacenter`, tagged pending and listed in decisions.md. Next: stage 10 (difficulty + full playthrough), which needs its own question round; the datacenter already takes a `difficulty` option for the data-loss penalty.
+>
 > **Update 2026-10-01 (later): stage 8 is done** (commit "Stage 8: localStorage saves"). `src/save/` (save.js format + checksum + migrations + pruning, storage.js try/catch wrapper, tabs.js second-tab detection, clock.js play clock), `src/game/state.js` (whole game state, `toSaveData`, `restoreRun`), `src/ui/SaveBar.jsx` (export/import/new game, banners). All game state in `src/App.jsx` is one object that autosaves. Economy answer logged (client pays parts, fee is profit, $0 start). Next: stage 9 (personal datacenter, backups), stage 10 (difficulty).
 >
 > **Update 2026-10-01: stages 6 and 7 are done** (commits "Stage 6: in-game browser, config apps, cloud/VM sim" and "Stage 7: stress test, delivery, payout, xp, levels"). This note is current where it disagrees with §2-§10 below, which describe the state before stage 6.

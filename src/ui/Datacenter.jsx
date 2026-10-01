@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { usd, num } from './format.js';
 import { ROLES, ROLE_UNITS } from '../dc/model.js';
-import { openCost, rackUnitsUsed } from '../dc/datacenter.js';
+import { openCost, rackUnitsUsed, partPrice } from '../dc/datacenter.js';
+import { RAID_LEVELS, driveCount, nodeDataTB } from '../dc/failures.js';
 import { referenceCandidates } from '../jobs/templates.js';
 import { GATES } from '../jobs/levels.js';
 
@@ -25,16 +26,18 @@ export function statusOf(u, k) {
   return 'ok';
 }
 
-function Gauge({ label, value, max = 1, unit = '%', k, text, testid }) {
+// neutral: a reading that is not a load on a limit (e.g. power at full load,
+// VRAM allocated up front), so it gets no trouble state.
+function Gauge({ label, value, max = 1, unit = '%', k, text, testid, neutral }) {
   if (value == null) return null;
   const u = value / max;
-  const st = STATUS[statusOf(u, k)];
+  const st = neutral ? { color: '#5598e7' } : STATUS[statusOf(u, k)];
   const pct = Math.min(100, u * 100);
   return (
-    <div className={`gauge st-${statusOf(u, k)}`} data-testid={testid}>
+    <div className={`gauge st-${neutral ? 'neutral' : statusOf(u, k)}`} data-testid={testid}>
       <div className="gauge-head"><span>{label}</span><b>{text ?? `${num(u * 100)}${unit}`}</b></div>
       <div className="gauge-track"><div className="gauge-fill" style={{ width: `${pct}%`, background: st.color }} /></div>
-      {u >= 0.8 && <div className="gauge-state" style={{ color: st.color }}>{st.icon} {st.label}</div>}
+      {!neutral && u >= 0.8 && <div className="gauge-state" style={{ color: st.color }}>{st.icon} {st.label}</div>}
     </div>
   );
 }
@@ -59,13 +62,17 @@ function Chart({ title, series, yMax, yLabel, refLine, refLabel, fmt, height = 1
         {ticks.map((t) => <g key={t}><line x1={L} x2={W - R} y1={y(t)} y2={y(t)} className="grid" /><text x={L - 6} y={y(t) + 4} className="axis" textAnchor="end">{fmt(t)}</text></g>)}
         {refLine != null && <g><line x1={L} x2={W - R} y1={y(refLine)} y2={y(refLine)} className="refline" /><text x={W - R + 4} y={y(refLine) + 4} className="axis">{refLabel}</text></g>}
         <text x={L} y={H - 4} className="axis">{yLabel}</text>
+        {(() => {
+          // End labels, nudged apart so they never overlap (min 11 px).
+          const ends = series.filter((s) => s.points.length).map((s) => ({ s, y: y(s.points[s.points.length - 1]) })).sort((a, b) => a.y - b.y);
+          for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 11);
+          return series.length > 1 ? ends.map((e) => <text key={e.s.name} x={W - R + 4} y={e.y + 4} className="label">{e.s.name}</text>) : null;
+        })()}
         {series.map((s) => {
           if (!s.points.length) return null;
           const off = n - s.points.length;
           const d = s.points.map((v, i) => `${i ? 'L' : 'M'}${x(i + off).toFixed(1)},${y(v).toFixed(1)}`).join('');
-          const last = s.points[s.points.length - 1];
-          return <g key={s.name}><path d={d} fill="none" stroke={s.color} strokeWidth="2" />
-            {series.length > 1 && <text x={W - R + 4} y={y(last) + 4} className="label">{s.name}</text>}</g>;
+          return <g key={s.name}><path d={d} fill="none" stroke={s.color} strokeWidth="2" /></g>;
         })}
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} className="crosshair" />}
       </svg>
@@ -106,7 +113,9 @@ export function Datacenter({ catalog, idx, dc, money, level, paused, onOpen, onB
         <div><span className="muted">Power bill</span><b>${num(last?.powerCostPerH ?? 0, 2)}/h</b></div>
         <div><span className="muted">Reputation</span><b data-testid="dc-rep">{num(dc.reputation, 1)} / 100</b></div>
         <div><span className="muted">Customers</span><b data-testid="dc-customers">{dc.customers.length}</b></div>
-        <div><span className="muted">Earned so far</span><b>{usd(dc.totals.earnedUSD - dc.totals.powerUSD)}</b></div>
+        <div><span className="muted">Backups</span><b>${num(last?.backupCostPerH ?? 0, 2)}/h</b></div>
+        <div><span className="muted">UPS runtime</span><b data-testid="dc-ups">{dc.upsUnits ? `${num(Math.min(last?.upsRuntimeMin ?? 0, 9999))} min` : 'none'}</b></div>
+        <div><span className="muted">Net so far</span><b>{usd(dc.totals.earnedUSD - dc.totals.powerUSD - (dc.totals.backupUSD ?? 0) - (dc.totals.penaltyUSD ?? 0))}</b></div>
       </section>
 
       <section className="card">
@@ -114,7 +123,7 @@ export function Datacenter({ catalog, idx, dc, money, level, paused, onOpen, onB
         <div className="gauges-grid" data-testid="dc-site-gauges">
           {ROLES.filter((r) => dc.nodes.some((n) => n.role === r)).map((r) => (
             <Gauge key={r} k={k} label={`${ROLE_NAMES[r]} load`} value={last?.util[r] ?? 0} testid={`gauge-site-${r}`}
-              text={`${num((last?.util[r] ?? 0) * 100)}% · ${num(last?.demand[r] ?? 0)} / ${num(last?.capacity[r] ?? 0)} ${ROLE_UNITS[r]}`} />
+              text={(last?.capacity[r] ?? 0) > 0 ? `${num((last?.util[r] ?? 0) * 100)}% · ${num(last?.demand[r] ?? 0)} / ${num(last?.capacity[r] ?? 0)} ${ROLE_UNITS[r]}` : `no working node · ${num(last?.demand[r] ?? 0)} ${ROLE_UNITS[r]} wanted`} />
           ))}
           <Gauge k={k} label="Site power" value={last?.wantW ?? 0} max={dc.utilityW} text={`${num((last?.wantW ?? 0) / 1000, 1)} / ${num(dc.utilityW / 1000, 1)} kW`} testid="gauge-site-power" />
           <Gauge k={k} label="Hall air" value={dc.hallC} max={k.hallMaxC} text={`${num(dc.hallC, 1)} C (max ${k.hallMaxC})`} testid="gauge-site-hall" />
@@ -145,16 +154,17 @@ export function Datacenter({ catalog, idx, dc, money, level, paused, onOpen, onB
                 {g && g.ok && (
                   <div className="gauges-grid small">
                     <Gauge k={k} label="GPU compute" value={g.gpu} testid="gauge-gpu" />
-                    <Gauge k={k} label="VRAM" value={g.vram} />
+                    <Gauge k={k} label="VRAM allocated" value={g.vram} neutral />
                     <Gauge k={k} label="CPU" value={g.cpu} />
                     <Gauge k={k} label="RAM" value={g.ram} />
                     <Gauge k={k} label="Disk IOPS" value={g.iops} />
                     <Gauge k={k} label="Network" value={g.net} />
-                    <Gauge k={k} label="Power (of full load)" value={g.wallW} max={Math.max(1, g.fullW)} text={`${num(g.wallW)} / ${num(g.fullW)} W`} />
+                    <Gauge k={k} label="Power (of full load)" value={g.wallW} max={Math.max(1, g.fullW)} text={`${num(g.wallW)} / ${num(g.fullW)} W`} neutral />
                     {g.gpu != null && <Gauge k={k} label="Hottest GPU" value={g.gpuC} max={90} text={`${num(g.gpuC, 0)} C${g.throttled ? ' (throttling)' : ''}`} />}
                     <Gauge k={k} label="CPU temp" value={g.cpuC} max={95} text={`${num(g.cpuC, 0)} C`} />
                   </div>
                 )}
+                <NodeCare idx={idx} n={n} money={money} onBuy={onBuy} />
                 <NicBuy idx={idx} money={money} onBuy={(part) => onBuy('nic', { nodeId: n.id, partId: part })} />
               </article>
             );
@@ -184,6 +194,34 @@ export function Datacenter({ catalog, idx, dc, money, level, paused, onOpen, onB
       </div>
 
       <DcShop catalog={catalog} idx={idx} dc={dc} money={money} onBuy={onBuy} />
+    </div>
+  );
+}
+
+// Dead parts, data protection and drives for one node.
+function NodeCare({ idx, n, money, onBuy }) {
+  const drives = useMemo(() => [...idx.parts.values()].filter((p) => p.category === 'storage'), [idx]);
+  const [drive, setDrive] = useState('');
+  const dead = n.dead ?? [];
+  return (
+    <div className="node-care">
+      {n.dataLost && <p className="bad-text" data-testid="node-data-lost">■ Data lost. {(n.deadDrives ?? 0) ? 'Replace the dead drive(s), then restore.' : <button className="small" onClick={() => onBuy('restore', { nodeId: n.id })}>Bring back online (empty)</button>}</p>}
+      {dead.map((d) => (
+        <p key={d.key} className="bad-text" data-testid="node-dead-part">■ Dead: {d.label}
+          <button className="small" disabled={money < partPrice(idx, n.build, d.key)} onClick={() => onBuy('replace', { nodeId: n.id, key: d.key })} data-testid="replace-part">Replace ({usd(partPrice(idx, n.build, d.key))})</button></p>
+      ))}
+      <div className="care-row">
+        <label>RAID <select value={n.raid ?? 'none'} onChange={(e) => onBuy('raid', { nodeId: n.id, level: e.target.value })} data-testid="node-raid">
+          {Object.entries(RAID_LEVELS).map(([k, v]) => <option key={k} value={k} disabled={driveCount(n.build) < v.minDrives}>{k === 'none' ? 'none' : k.toUpperCase()} (min {v.minDrives})</option>)}
+        </select></label>
+        <label><input type="checkbox" checked={!!n.snapshots} onChange={(e) => onBuy('snapshots', { nodeId: n.id, on: e.target.checked })} data-testid="node-snapshots" /> Snapshots</label>
+        <span className="muted">{driveCount(n.build)} drive(s), {num(nodeDataTB(idx, n), 1)} TB usable</span>
+      </div>
+      <div className="nic-buy">
+        <select value={drive} onChange={(e) => setDrive(e.target.value)} data-testid="node-drive-pick"><option value="">Add a drive...</option>
+          {drives.map((p) => <option key={p.id} value={p.id}>{p.displayName} ({usd(p.priceUSD)})</option>)}</select>
+        <button className="small" disabled={!drive || money < (idx.parts.get(drive)?.priceUSD ?? Infinity)} onClick={() => onBuy('drive', { nodeId: n.id, partId: drive })} data-testid="node-drive-buy">Buy</button>
+      </div>
     </div>
   );
 }
@@ -238,6 +276,10 @@ function DcShop({ catalog, idx, dc, money, onBuy }) {
           <p><button disabled={money < k.coolingStepUSD} onClick={() => onBuy('cooling')} data-testid="dc-buy-cooling">Cooling unit, +{k.coolingStepAch} air changes/h ({usd(k.coolingStepUSD)})</button></p>
           <p><button disabled={money < openCost(idx)} onClick={() => onBuy('rack')}>Another rack + PDU ({usd(openCost(idx))})</button></p>
           <p><button disabled={money < pdu.priceUSD} onClick={() => onBuy('pdu', { rackId })}>Extra PDU for {rackId} ({usd(pdu.priceUSD)}, {num(pdu.capacityW / 1000, 1)} kW)</button></p>
+          <h4>Protection</h4>
+          <p><button disabled={money < k.upsUnitUSD} onClick={() => onBuy('ups')} data-testid="dc-buy-ups">UPS unit, {num(k.upsRatedW)} W ({usd(k.upsUnitUSD)})</button> <span className="muted">{dc.upsUnits} installed</span></p>
+          <p><label><input type="checkbox" checked={!!dc.offsite} onChange={(e) => onBuy('offsite', { on: e.target.checked })} data-testid="dc-offsite" /> Offsite copy of all data (${k.offsiteUSDPerTBMonth}/TB/month)</label></p>
+          <p className="muted small-print">RAID protects against a drive dying, snapshots against a bad change, the offsite copy against losing the site, the UPS against a power cut for as long as its battery lasts.</p>
           <p className="muted">Feed {num(dc.utilityW / 1000)} kW · {dc.coolingUnits} cooling unit(s) · {dc.racks.length} rack(s)</p>
         </div>
       </div>

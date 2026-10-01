@@ -210,6 +210,23 @@ export const constants = {
     historyPoints: est(240, 'points', 'Pending. Hours of history kept for the dashboard graph.'),
     inferenceConcurrency: est(32, 'sequences', 'Pending. Concurrent sequences an inference node is set up for when sizing its capacity.'),
     inferenceContext: est(8192, 'tokens', 'Pending. Context each inference node is set up for.'),
+
+    // Stage 9b: failures, data loss, backups.
+    upsRatedW: pub(1000, 'W', 'ups-1500-ipsd', '1000 W / 1440 VA rack UPS class'),
+    upsMinAtHalfLoad: pub(25.8, 'min', 'ups-1500-ipsd', 'half load (500 W)'),
+    upsMinAtFullLoad: pub(7.2, 'min', 'ups-1500-ipsd', 'full load (1000 W)'),
+    upsUnitUSD: est(900, 'USD', 'Pending. No price on the opened listing; assumed for a 1 kW rack UPS.'),
+    powerCutsPerYear: pub(1.5, '1/yr', 'eia-outages-2024', 'average US interruptions per customer, 2024'),
+    powerCutMeanMin: est(80, 'min', 'EIA: interruptions outside major events average about two hours per year; at 1.5 per year that is about 80 minutes each. Major-event outages (9 h in 2024) are not modeled. Pending.', 'eia-outages-2024'),
+    powerCutRepLoss: est(2, 'points', 'Pending. Reputation lost when the site goes dark.'),
+    offsiteUSDPerTBMonth: pub(6.95, 'USD/TB/month', 'b2-pricing', 'pay-as-you-go object storage'),
+    snapshotUSDPerTBMonth: est(6.95, 'USD/TB/month', 'Pending. Snapshot space priced like the offsite copy (extra disk for changed blocks).'),
+    siteLossPerYear: est(0.01, '1/yr', 'Pending. Chance per year of losing the whole site (fire, flood). No data found.'),
+    badChangePerNodeYear: est(0.5, '1/yr', 'Pending. Chance per node-year that a bad change (wrong delete, broken upgrade) destroys its data.'),
+    dataLossRepLoss: est(10, 'points', 'Pending. Reputation lost per data-loss event.'),
+    penaltyEasy: est(0.05, 'fraction of money', 'Pending. Data-loss penalty on easy (difficulty arrives in stage 10).'),
+    penaltyNormal: est(0.1, 'fraction of money', 'Pending. Data-loss penalty on normal.'),
+    penaltyHard: est(0.15, 'fraction of money', 'User example: on hard, an unhappy client takes 15% of the money the player has.'),
   },
 
   // Stage 6: which software runs on which OS (published install requirements).

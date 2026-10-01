@@ -85,7 +85,7 @@ button.deliver { margin-top: 8px; display: block; }
 .banner.bad { background: #5a1a1a; color: #ffd6d6; }
 button.danger { background: #a93226; }
 .dc { display: grid; gap: 12px; }
-.dc-kpis { display: flex; gap: 28px; flex-wrap: wrap; }
+.card.dc-kpis { display: flex; flex-direction: row; gap: 28px; flex-wrap: wrap; }
 .dc-kpis > div { display: grid; }
 .dc-kpis b { font-size: 18px; font-variant-numeric: tabular-nums; }
 .paused { color: #fab219; }
@@ -115,3 +115,6 @@ button.danger { background: #a93226; }
 .al-critical { color: #ffb3b3; } .al-serious { color: #f5c0a8; } .al-warning { color: #ffe1a0; }
 .dc-shop-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
 .nic-buy { display: flex; gap: 6px; margin-top: 6px; }
+.node-care { margin-top: 6px; font-size: 13px; }
+.node-care .bad-text { margin: 4px 0; }
+.care-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }

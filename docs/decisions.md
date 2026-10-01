@@ -149,3 +149,13 @@ All of the following are **pending sign-off**.
 - A site power shortfall (utility feed or a rack's PDUs) holds every node back proportionally.
 - History graph keeps the last 240 simulated hours.
 - Save version 2: the first real migration (v1 -> v2 adds `datacenter: null`).
+
+**Stage 9b values picked by Claude** (also in `constants.datacenter`, pending):
+- Each protection covers only its own failure (per the approved design): RAID a drive dying, snapshots a bad change, the offsite copy losing the site, a UPS a power cut for its runtime. In reality an offsite copy also restores after a lost array (after a restore delay); that is not modeled.
+- RAID levels none/1/5/6/10 with minimum drives 1/2/3/4/4 and tolerated failures 0/1/1/2/1; with one failure tolerated, a drive death also rolls the rebuild read-error risk from the datasheet URE rate (published formula, tagged rates). Usable space: RAID1 one drive, RAID5 n-1, RAID6 n-2, RAID10 n/2 (of the smallest drive).
+- A dead GPU, CPU, RAM or PSU takes the node down until replaced (layer split and tensor parallel need every GPU); a dead fan only raises an alert. Replacement costs one unit of that part at catalog price. A node whose data was lost comes back empty once its drives are replaced.
+- UPS: 1 kW units at $900 each (no price on the opened page); runtime is a power law through the two published points; several units share the load evenly; a cut longer than the runtime darkens the site for the remainder of that hour and costs 2 reputation.
+- Power cuts 1.5 per year (EIA 2024), lasting on average 80 min (exponential), derived from the ~2 h/yr outside major events. Major events are not modeled.
+- Bad changes 0.5 per node-year; site loss 0.01 per year (no data found).
+- Data loss: penalty = fraction of the player's current money (easy 5%, normal 10%, hard 15% per the user's example), reputation -10, and the biggest customer of that workload leaves. Difficulty is passed in as 'normal' until stage 10.
+- Snapshots cost like offsite storage ($6.95/TB/month of the node's usable data); offsite is billed on all usable data.

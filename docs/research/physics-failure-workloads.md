@@ -103,3 +103,11 @@ Proxmox VE wiki, "Qemu/KVM Virtual Machines":
   - multiqueue, rate limit
 - **Other:** PCI passthrough (needs q35 + OVMF), per-disk backup on/off.
 - **No virtualization-overhead measurements** were collected, because the model isn't designed until the user answers.
+
+## Stage 9b additions (accessed 2026-10-01)
+
+- **UPS runtime** (IP Security Depot listing of the APC Smart-UPS SMT1500RM2UC, opened): 1000 W / 1440 VA, 2U; 25.8 min at half load (500 W), 7.2 min at full load (1000 W). A search summary also gave a full curve (335 min at 50 W down to 8.6 min at 900 W), but that page (SHI) returned 403, so only the two opened points are used; the sim fits a power law through them (exponent 1.84). No price on the page.
+- **Utility outages** (EIA Today in Energy, 2025-12-01, opened): 1.5 interruptions per customer in 2024; 11 hours total in 2024, of which major events nearly 9; outside major events about 2 hours per year.
+- **Offsite storage price** (Backblaze B2 pricing page, opened): $6.95 per TB per month pay-as-you-go; free egress up to 3x stored per month.
+- **RAID rebuild risk** uses the datasheet unrecoverable-read-error rates already listed above (1 in 1e14 bits NAS class, 1e15 enterprise): P(error during rebuild) = 1 - (1 - 1/URE)^(bits read from the surviving drives).
+- **Not found:** site-loss (fire/flood) rates for small data halls; bad-change (operator error) rates. Both are pending estimates.

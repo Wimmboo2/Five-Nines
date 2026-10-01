@@ -150,5 +150,8 @@ export const sources = [
   { id: 'lcpp-quantize', kind: 'docs', title: 'llama.cpp tools/quantize README', url: 'https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md', accessed: A },
   { id: 'pve-sysreq', kind: 'docs', title: 'Proxmox VE wiki: System Requirements', url: 'https://pve.proxmox.com/wiki/System_Requirements', accessed: A },
   { id: 'pve-media-kit', kind: 'reference', title: 'Proxmox media kit (trademark use rules)', url: 'https://proxmox.com/en/about/company-details/media-kit', accessed: A },
+  { id: 'ups-1500-ipsd', kind: 'reference', title: 'IP Security Depot: APC Smart-UPS SMT1500RM2UC listing (1000 W / 1440 VA; 25.8 min at 500 W, 7.2 min at 1000 W)', url: 'https://www.ipsecuritydepot.com/apc-smart-ups-1500va-lcd-rm-2u-120v-us/smt1500rm2ucus/', accessed: '2026-10-01' },
+  { id: 'eia-outages-2024', kind: 'reference', title: 'EIA Today in Energy (2025-12-01): Hurricanes in 2024 led to the most hours without power in the United States in 10 years', url: 'https://www.eia.gov/todayinenergy/detail.php?id=66744', accessed: '2026-10-01' },
+  { id: 'b2-pricing', kind: 'reference', title: 'Backblaze B2 Cloud Storage pricing', url: 'https://www.backblaze.com/cloud-storage/pricing', accessed: '2026-10-01' },
   { id: 'lcpp-mmq-commit', kind: 'reference', title: 'llama.cpp git history: commit a818f3028 (PR #8075) and ggml-cuda.cu at 8f7080bf4', url: 'https://github.com/ggml-org/llama.cpp/pull/8075', accessed: A },
 ];

@@ -106,7 +106,8 @@ export default function App() {
         if (!a.steps) return { ...g, dcCarryH: a.carryH };
         let dc = g.datacenter;
         let delta = 0;
-        for (let i = 0; i < a.steps; i++) { const r = DC.stepDatacenter(catalog, idx, dc, 1, { difficulty: 'normal' }); dc = r.dc; delta += r.moneyDelta; }
+        for (let i = 0; i < a.steps; i++) { // Difficulty arrives in stage 10; the data-loss penalty uses 'normal' until then.
+          const r = DC.stepDatacenter(catalog, idx, dc, 1, { difficulty: 'normal', money: g.player.money + delta }); dc = r.dc; delta += r.moneyDelta; }
         return { ...g, datacenter: dc, dcCarryH: a.carryH, player: { ...g.player, money: g.player.money + delta } };
       });
     }, 1000);
@@ -116,7 +117,10 @@ export default function App() {
     const dc = g.datacenter;
     const r = kind === 'node' ? DC.buyNode(catalog, idx, dc, args) : kind === 'nic' ? DC.buyNic(idx, dc, args.nodeId, args.partId)
       : kind === 'rack' ? DC.buyRack(idx, dc) : kind === 'pdu' ? DC.buyPdu(idx, dc, args.rackId)
-        : kind === 'cooling' ? DC.buyCooling(idx, dc) : DC.buyUtility(idx, dc);
+        : kind === 'cooling' ? DC.buyCooling(idx, dc) : kind === 'utility' ? DC.buyUtility(idx, dc)
+          : kind === 'replace' ? DC.replacePart(idx, dc, args.nodeId, args.key) : kind === 'restore' ? DC.restoreNode(dc, args.nodeId)
+            : kind === 'drive' ? DC.addDrive(idx, dc, args.nodeId, args.partId) : kind === 'raid' ? DC.setRaid(dc, args.nodeId, args.level)
+              : kind === 'snapshots' ? DC.setSnapshots(dc, args.nodeId, args.on) : kind === 'offsite' ? DC.setOffsite(dc, args.on) : DC.buyUps(idx, dc);
     if (r.error) { setToast(r.error); return {}; }
     if (r.costUSD > g.player.money) { setToast(`Not enough money: that costs ${usd(r.costUSD)}.`); return {}; }
     return { datacenter: r.dc, player: { ...g.player, money: g.player.money - r.costUSD } };
