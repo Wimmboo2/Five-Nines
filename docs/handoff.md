@@ -1,5 +1,28 @@
 # Five Nines: session handoff (2026-09-30)
 
+> **Update 2026-10-01 (final): stage 10 is done** (commits "Stage 10a" and "Stage 10b"). All 10 stages of the build order exist. This block is the current state; §2-§10 below describe the project before stage 6.
+>
+> - **Difficulty:** `src/game/difficulty.js` + `constants.difficulty` (user-approved table), picked at New game, locked per save (save v3). Applies to jobs and the datacenter.
+> - **Offsite copy** restores after any data loss with downtime and a partial loss since the last daily copy.
+> - **Brief's example job** is reachable through the generator (seed 928, homelab, level 3; test in tests/jobs.test.js).
+> - **Sign-off:** every pending value is in `docs/signoff.md`.
+> - **Verified in the browser (Playwright, 2026-10-01):**
+>   - new game on easy/hard/normal;
+>   - 15 jobs played through the real UI from level 1 to 5 (all scored 100);
+>   - datacenter opened, 3 nodes, offsite, 2 UPS, 3 real minutes of natural customers and churn, reload mid-run restored exactly;
+>   - a natural stress-test part failure (attempt 7056 of an 8-GPU datacenter job) stopped the test, Replace, rerun from 0:00, passed;
+>   - no console errors (favicon fixed).
+> - **Acceptance checks (docs/design-plan.md):**
+>   - **all 13 passing,** with these caveats:
+>     - the stress test is computed and then played back;
+>     - the datacenter clock is a logged 3600x exception to the real-time rule;
+>     - natural datacenter part failures were shown headless (40,000 simulated hours) rather than in the 3-minute browser run.
+> - **Untuned:** everything in signoff.md.
+> - **Known weak:**
+>   - game-server tick model (no measurement);
+>   - datacenter economics: payback is slow next to level 4-5 job fees; reputation collapses under constant overload.
+> - **Next:** the user's sign-off pass and playtesting.
+>
 > **Update 2026-10-01 (latest): stage 9 is done** (commits "Stage 9a..." and "Stage 9b..."). Personal datacenter in `src/dc/` (`model.js` node capacity from evaluateBuild, `datacenter.js` state/purchases/hourly step, `failures.js` RAID/UPS/penalty/part failures, `clock.js` visible-only time), dashboard `src/ui/Datacenter.jsx`, Datacenter tab gated at level 5. Save version 2 (first migration). Every game-design number is in `constants.datacenter`, tagged pending and listed in decisions.md. Next: stage 10 (difficulty + full playthrough), which needs its own question round; the datacenter already takes a `difficulty` option for the data-loss penalty.
 >
 > **Update 2026-10-01 (later): stage 8 is done** (commit "Stage 8: localStorage saves"). `src/save/` (save.js format + checksum + migrations + pruning, storage.js try/catch wrapper, tabs.js second-tab detection, clock.js play clock), `src/game/state.js` (whole game state, `toSaveData`, `restoreRun`), `src/ui/SaveBar.jsx` (export/import/new game, banners). All game state in `src/App.jsx` is one object that autosaves. Economy answer logged (client pays parts, fee is profit, $0 start). Next: stage 9 (personal datacenter, backups), stage 10 (difficulty).

@@ -142,3 +142,24 @@ describe('build state and cost (stage 4-5 fixes)', () => {
     expect(buildCost(idx, b)).toBe(rack.priceUSD);
   });
 });
+
+describe("the brief's example job (stage 10)", () => {
+  it('the real generator rolls it and its reference build passes', () => {
+    // Seed 928 (found by searching homelab rolls at level 3): game server plus
+    // an AI model up to 32B, 262k context, 20+ tok/s, under 1000 W, a noise
+    // limit (quiet), small closed room.
+    const j = generateJob(catalog, { seed: 928, idx, tier: 'homelab', level: 3 });
+    const m = idx.models.get(j.workload.inference.model);
+    expect(j.type).toBe('mixed');
+    expect(j.workload.gameServer.players).toBeGreaterThan(0);
+    expect(m.totalParams).toBeLessThanOrEqual(32e9);
+    expect(j.workload.inference.contextLength).toBe(262144);
+    expect(j.targets.tokPerSec.value).toBeGreaterThanOrEqual(20);
+    expect(j.targets.powerLimitW).toBeLessThan(1000);
+    expect(j.targets.noiseLimitDBA).not.toBeNull();
+    expect(j.room.archetype).toBe('room-closet');
+    const ev = evaluateForJob(catalog, j, j.reference.build, j.reference.software, { idx });
+    expect(ev.failures).toEqual([]);
+    expect(scoreDelivery(ev, j).score).toBe(100);
+  });
+});

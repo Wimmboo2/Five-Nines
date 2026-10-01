@@ -36,7 +36,8 @@ export const GEN = {
 };
 
 const WORKLOAD = {
-  homelab: { maxWeightsGB: 40, contexts: [4096, 8192, 16384, 32768], concurrency: [1, 1, 2], players: [4, 30],
+  // 262144 added in stage 10 so the brief's example job can roll (pending sign-off).
+  homelab: { maxWeightsGB: 40, contexts: [4096, 8192, 16384, 32768, 262144], concurrency: [1, 1, 2], players: [4, 30],
     vms: { count: [2, 6], vcpus: [2, 4], ramGB: [4, 8], diskGB: [32, 64], maxOvercommit: [2, 4] } },
   server: { maxWeightsGB: 300, contexts: [8192, 32768, 65536], concurrency: [1, 4, 8], players: [20, 120],
     vms: { count: [8, 24], vcpus: [2, 4, 8], ramGB: [8, 16], diskGB: [64, 128], maxOvercommit: [2, 4] } },
