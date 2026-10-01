@@ -21,10 +21,13 @@ import { SAVE_KEY, serialize, deserialize } from './save/save.js';
 import { makeStorage } from './save/storage.js';
 import { watchOtherTabs } from './save/tabs.js';
 import { advance } from './save/clock.js';
+import { Datacenter } from './ui/Datacenter.jsx';
+import { dcAdvance } from './dc/clock.js';
+import * as DC from './dc/datacenter.js';
 
 const idx = indexCatalog(catalog);
 const storage = makeStorage();
-const TABS = [['jobs', 'Job board'], ['shop', 'Shop'], ['software', 'Software'], ['browser', 'Browser'], ['build', 'Build']];
+const TABS = [['jobs', 'Job board'], ['shop', 'Shop'], ['software', 'Software'], ['browser', 'Browser'], ['build', 'Build'], ['datacenter', 'Datacenter']];
 const AUTOSAVE_DEBOUNCE_MS = 500;
 const PLAYED_SAVE_EVERY_MS = 15000;
 
@@ -49,6 +52,7 @@ export default function App() {
   // An unreadable save is never overwritten until the player chooses.
   const [unreadable, setUnreadable] = useState(init.unreadable ?? null);
   const [otherTab, setOtherTab] = useState(false);
+  const [toast, setToast] = useState(null);
   const tabs = useRef(null);
   const played = useRef(game.playedS);
 
@@ -80,10 +84,48 @@ export default function App() {
   const [playedS, setPlayedS] = useState(game.playedS);
   useEffect(() => {
     let last = Date.now();
-    const tick = setInterval(() => { const now = Date.now(); played.current = advance(played.current, last, now); last = now; setPlayedS(played.current); }, 1000);
+    // A hidden tab counts as closed: the play clock stops too.
+    const tick = setInterval(() => { const now = Date.now(); if (document.visibilityState === 'visible') played.current = advance(played.current, last, now); last = now; setPlayedS(played.current); }, 1000);
     const periodic = setInterval(() => write(latest.current), PLAYED_SAVE_EVERY_MS);
     return () => { clearInterval(tick); clearInterval(periodic); };
   }, [canSave]);
+  // Datacenter time: only while the tab is visible (a hidden tab counts as
+  // closed), whole simulated hours, no catch-up (src/dc/clock.js).
+  const [hidden, setHidden] = useState(typeof document !== 'undefined' && document.visibilityState === 'hidden');
+  useEffect(() => {
+    const onVis = () => setHidden(document.visibilityState === 'hidden');
+    document.addEventListener('visibilitychange', onVis);
+    let last = Date.now();
+    const h = setInterval(() => {
+      const now = Date.now();
+      const prev = last;
+      last = now;
+      setGame((g) => {
+        if (!g.datacenter) return g;
+        const a = dcAdvance(g.dcCarryH ?? 0, prev, now, document.visibilityState === 'visible', idx.constants.datacenter.simHoursPerRealSecond);
+        if (!a.steps) return { ...g, dcCarryH: a.carryH };
+        let dc = g.datacenter;
+        let delta = 0;
+        for (let i = 0; i < a.steps; i++) { const r = DC.stepDatacenter(catalog, idx, dc, 1, { difficulty: 'normal' }); dc = r.dc; delta += r.moneyDelta; }
+        return { ...g, datacenter: dc, dcCarryH: a.carryH, player: { ...g.player, money: g.player.money + delta } };
+      });
+    }, 1000);
+    return () => { clearInterval(h); document.removeEventListener('visibilitychange', onVis); };
+  }, []);
+  const buyDc = (kind, args = {}) => update((g) => {
+    const dc = g.datacenter;
+    const r = kind === 'node' ? DC.buyNode(catalog, idx, dc, args) : kind === 'nic' ? DC.buyNic(idx, dc, args.nodeId, args.partId)
+      : kind === 'rack' ? DC.buyRack(idx, dc) : kind === 'pdu' ? DC.buyPdu(idx, dc, args.rackId)
+        : kind === 'cooling' ? DC.buyCooling(idx, dc) : DC.buyUtility(idx, dc);
+    if (r.error) { setToast(r.error); return {}; }
+    if (r.costUSD > g.player.money) { setToast(`Not enough money: that costs ${usd(r.costUSD)}.`); return {}; }
+    return { datacenter: r.dc, player: { ...g.player, money: g.player.money - r.costUSD } };
+  });
+  const openDc = () => update((g) => {
+    const cost = DC.openCost(idx);
+    if (g.player.money < cost) return {};
+    return { datacenter: DC.newDatacenter(catalog, idx, (g.boardSeed * 7919 + g.player.xp) >>> 0), player: { ...g.player, money: g.player.money - cost } };
+  });
   useEffect(() => {
     tabs.current = watchOtherTabs(setOtherTab);
     return () => tabs.current?.close();
@@ -144,6 +186,7 @@ export default function App() {
         onImport={loadGame} onNewGame={startNew} />
       <SaveBanners notices={notices} onDismiss={() => setNotices([])} storageError={storageError} loadError={loadError}
         unreadable={unreadable} otherTab={otherTab} onTakeOver={() => tabs.current?.takeOver()} />
+      {toast && <div className="banner warn" data-testid="toast">{toast} <button className="small" onClick={() => setToast(null)}>OK</button></div>}
       <BudgetMeter cost={cost} budget={activeJob?.budgetUSD} />
       <main>
         {result && <DeliveryResult result={result} onClose={() => update({ result: null, tab: 'jobs' })} />}
@@ -160,6 +203,8 @@ export default function App() {
           filters={game.shop} setFilters={(shop) => update({ shop })} />}
         {tab === 'software' && <SoftwareScreen idx={idx} catalog={catalog} software={software} setSoftware={(s) => update({ software: s })} gpuCount={build.gpus.length} />}
         {tab === 'browser' && <Browser />}
+        {tab === 'datacenter' && <Datacenter catalog={catalog} idx={idx} dc={game.datacenter} money={player.money} level={player.level}
+          paused={hidden} onOpen={openDc} onBuy={buyDc} />}
         {tab === 'build' && !result && <BuildScreen catalog={catalog} idx={idx} job={activeJob} build={build} setBuild={setBuild} software={software}
           run={run} broken={broken} onRunTest={runTest} onReplace={() => update({ broken: null })} onDeliver={deliver}
           onProgress={(t) => update((g) => (g.run ? { run: { ...g.run, positionS: t } } : {}))} />}

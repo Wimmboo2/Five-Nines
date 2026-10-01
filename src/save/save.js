@@ -6,11 +6,15 @@
 // - checksum is FNV-1a over JSON.stringify(data). It catches corruption and
 //   hand edits; anyone can recompute it, so it is not tamper-proof.
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const SAVE_KEY = 'five-nines-save';
 
 // version -> function that upgrades data from that version to version + 1.
-export const MIGRATIONS = {};
+export const MIGRATIONS = {
+  // v1 -> v2 (stage 9): the personal datacenter. Version 1 saves predate it,
+  // so the player hasn't opened one yet.
+  1: (d) => ({ ...d, datacenter: null }),
+};
 
 export function fnv1a(str) {
   let h = 0x811c9dc5;
@@ -57,6 +61,7 @@ function checkShape(d) {
   if (!d.build || !Array.isArray(d.build.gpus)) return 'build is missing';
   if (!d.software || typeof d.software !== 'object') return 'software is missing';
   if (!num(d.playedS)) return 'time played is missing';
+  if (d.datacenter != null && (typeof d.datacenter !== 'object' || !Array.isArray(d.datacenter.nodes) || !num(d.datacenter.simH))) return 'datacenter is invalid';
   return null;
 }
 
@@ -95,6 +100,13 @@ export function pruneMissing(data, idx) {
   d.jobs = d.jobs.filter((j) => jobOk(j) || (removed.push(`Job for ${j.client?.name ?? 'a client'} was removed: it needs a model or part that no longer exists.`), false));
   if (d.activeJobId && !d.jobs.some((j) => j.id === d.activeJobId)) {
     d.activeJobId = null; d.run = null; d.broken = null;
+  }
+  // Datacenter: nodes or racks whose parts are gone are removed.
+  if (d.datacenter) {
+    const dc = d.datacenter;
+    dc.racks = dc.racks.filter((r) => (hasPart(r.part) && r.pdus.every(hasPart)) || (removed.push(`Datacenter rack ${r.id} used a part that no longer exists and was removed.`), false));
+    dc.nodes = dc.nodes.filter((n) => (dc.racks.some((r) => r.id === n.rackId) && partIdsOf(n.build).every(hasPart) && (!n.model || idx.models.has(n.model)))
+      || (removed.push(`Datacenter node ${n.id} used a part or model that no longer exists and was removed.`), false));
   }
   // A stress run on a changed build is re-checked against its key on load.
   return { data: d, removed };

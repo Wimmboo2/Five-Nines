@@ -129,3 +129,23 @@ Simplest reasonable values where the user's answers and the research left a numb
 - Save checksum is FNV-1a: it catches corruption and hand edits, but anyone can recompute it, so it is not tamper-proof.
 - An unreadable save (corrupt, unknown version) is never overwritten: the game runs unsaved until the player picks New game or imports, and can export the old raw save.
 - Two tabs: the tab opened later stops saving and warns; it has a "Use this tab instead" button that hands saving over to it.
+
+## 2026-10-01: stage 9 personal datacenter (no question round: Claude's design, approved by the user)
+
+All of the following are **pending sign-off**.
+
+**Approved design (user):** unlock at level 5 (4000 xp), parts never locked. Sells AI inference, game servers and VMs; customers appear and use capacity, no contracts. The player buys the hardware with their own money (until now money was only job profit). Start with a small rack and grow by buying racks, nodes, power and cooling; limits are money and the room's power and cooling. Passive income from customers. Demand grows slowly with a rhythm plus seeded random spikes. Overload in stages: slower service and lower pay first, then customers leave and reputation drops; reputation sets how many new customers show up. Failures in real time from durability.js, with alerts, degraded service until replaced, and replacement costs money (stage 9b). Data loss with nothing protecting it costs money scaled by difficulty (hard example: 15% of current money); difficulty is passed through but not implemented until stage 10. Backups: RAID, snapshots, offsite copy, UPS, each against its own failure (stage 9b). Time only passes while the tab is open and visible; a hidden tab pauses the datacenter; no catch-up.
+
+**Stage 9a values picked by Claude** (all in `data-dev/constants.js` → `datacenter`, each tagged estimate with a "Pending" reasoning string; pointer comment above the block):
+- Time scale: 1 real second = 1 simulated hour (`simHoursPerRealSecond`), so yearly failure rates and daily rhythms happen within a session. The play clock (stage 8) now also stops while the tab is hidden.
+- Site: opening costs one 42U rack + one PDU at catalog prices; hall = the data-hall room archetype at its minimum size. Utility feed starts at 20 kW, +20 kW per $25,000 upgrade; a cooling unit adds 20 air changes per hour for $15,000; hall air limit 32 C (`hallMaxC`, ASHRAE A1 allowable as commonly quoted, page not opened).
+- Nodes: the job generator's reference builds (server tier with or without GPUs, datacenter GPU nodes), priced by `buildCost`; rack space from each chassis' rack units. Template nodes have only an onboard 1 GbE port (`onboardNicGbps`); catalog network cards can be added.
+- Node capacity: inference = `evaluateBuild` aggregate tok/s at the largest concurrency up to 32 that fits (`inferenceConcurrency`), 8k context (`inferenceContext`); game = servers (one per 3 cores, published) x players per server at 20 TPS, also limited by RAM; VMs = threads x 2 vCPUs (`vmOvercommit`), RAM minus the hypervisor reserve, IOPS from the VM model.
+- Power and temperatures between idle and full load are linear in utilization between two `evaluateBuild` runs (approximation). Each node is evaluated with the hall air as its inlet.
+- Customers: sizes 20-300 tok/s, 5-40 players, 2-16 vCPUs (4 GB and 500 IOPS per vCPU); arrivals 0.08/h per served workload at reputation 50, scaled by reputation/50, growing 2%/simulated day; daily rhythm +/-30%; spikes 1%/h, x2-5 for 6-24 h.
+- Prices: $0.20 per million tokens, $0.002 per player-hour, $0.02 per vCPU-hour; electricity $0.12/kWh.
+- Network per unit: 32 bit per token, 100 kbit/s per player, 50 Mbit/s per vCPU.
+- Overload: above 100% service is slow and pay drops to 1/utilization; above 125% for 6 h the biggest customer of that workload leaves and reputation drops 3, repeating every 6 h; reputation 0-100, starts 50, +0.1/h while everything is at or under 100%. Network saturation counts as overload too.
+- A site power shortfall (utility feed or a rack's PDUs) holds every node back proportionally.
+- History graph keeps the last 240 simulated hours.
+- Save version 2: the first real migration (v1 -> v2 adds `datacenter: null`).

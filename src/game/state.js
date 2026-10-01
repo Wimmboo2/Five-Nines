@@ -17,6 +17,7 @@ export function newGame(catalog) {
     build: emptyBuild(), software: emptySoftware(), player: newPlayer(),
     shop: { cat: 'all', tier: 'all' },
     run: null, attempt: 0, broken: null, result: null, playedS: 0,
+    datacenter: null, dcCarryH: 0,
   };
 }
 
